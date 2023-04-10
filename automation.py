@@ -1,5 +1,8 @@
 import time
 import os
+import re
+import socket
+import subprocess
 import unittest
 import itertools
 from appium import webdriver
@@ -9,9 +12,9 @@ from enum import Enum
 ###############################################################################################################
 
 # Here is to define constant values
-IP_ADDR = "http://127.0.0.1"
-PORT_NUMBER = "4723"
-REMOTE_TARGET = IP_ADDR + ":" + PORT_NUMBER
+IP_ADDR = "127.0.0.1"
+PORT_NUMBER = 4723
+REMOTE_TARGET = "http://" + IP_ADDR + ":" + str(PORT_NUMBER)
 
 # the duration (in second) of video recording
 VIDEO_CAPTURE_DURATION = 30
@@ -20,7 +23,7 @@ VIDEO_CAPTURE_DURATION = 30
 OPERATION_WAIT_DURATION = 1
 
 # the number of iterations for veryfying both videos/photos MEP effects
-NUMBER_OF_TEST_ITERATIONS = 1000
+NUMBER_OF_TEST_ITERATIONS = 1
 
 # to take video/photo or not,
 # 0: not to take
@@ -53,6 +56,26 @@ FLICKER_REDUCTION = [
     "60 Hz",
 ]
 
+DEVELOPER_MODE_REG_KEY = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
+DEVELOPER_MODE_REG_NAME = "AllowDevelopmentWithoutDevLicense"
+DEVELOPER_MODE_REG_TYPE = "REG_DWORD"
+
+def checkConnection(host=IP_ADDR, port=PORT_NUMBER):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    r = s.connect_ex((host, port))
+    s.close()
+    return r == 0
+
+def selectAllowDevelopmentWithoutDevLicense():
+    result = subprocess.run(['reg', 'query', DEVELOPER_MODE_REG_KEY, '/v', DEVELOPER_MODE_REG_NAME], check=True, encoding='utf-8', stdout=subprocess.PIPE)
+    return re.sub(r'\n|\r', r'', re.sub(r' +', r' ', result.stdout)).split(' ')[-1]
+
+def updateAllowDevelopmentWithoutDevLicense(value=0):
+    subprocess.run(['powershell', 'start-process', 'cmd.exe', f'"/c reg add {DEVELOPER_MODE_REG_KEY} /v {DEVELOPER_MODE_REG_NAME} /t {DEVELOPER_MODE_REG_TYPE} /d {value} /f"', '-verb runas'], check=True, shell=True)
+
+def execWinAppDriver():
+    subprocess.run(['start', 'WinAppDriver'], shell=True, cwd='C:\Program Files (x86)/Windows Application Driver')
+
 ###############################################################################################################
 
 '''
@@ -62,6 +85,16 @@ FLICKER_REDUCTION = [
 '''
 
 def launchCameraApp():
+
+    if (selectAllowDevelopmentWithoutDevLicense() == '0x0'):
+        updateAllowDevelopmentWithoutDevLicense(1)
+        time.sleep(1)
+        print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
+
+    if (not checkConnection()):
+        execWinAppDriver()
+        print('exec_win_app_driver')
+
     # Set desired capabilities to launch the Camera app
     desired_caps = {
         "app": "Microsoft.WindowsCamera_8wekyb3d8bbwe!App",
@@ -93,6 +126,11 @@ def closeCameraApp(WindowsCameraAppDriver):
 
     # Quit the Windows Application Driver
     WindowsCameraAppDriver.quit()
+
+    if ((not checkConnection()) and (selectAllowDevelopmentWithoutDevLicense() == '0x1')):
+        updateAllowDevelopmentWithoutDevLicense(0)
+        time.sleep(OPERATION_WAIT_DURATION)
+        print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
 
 ###############################################################################################################
 
@@ -144,7 +182,7 @@ def switchCameraCheckMEPPackageExist(WindowsCameraAppDriver):
 
 def switchToVideoMode(WindowsCameraAppDriver):
     '''
-        if is not in video mode, 
+        if is not in video mode,
         we can switch into photo mode first,
         and then switch to video mode
     '''
@@ -157,7 +195,7 @@ def switchToVideoMode(WindowsCameraAppDriver):
         videoModeButtom = WindowsCameraAppDriver.find_element_by_name("Switch to video mode")
         videoModeButtom.click()
         time.sleep(OPERATION_WAIT_DURATION)
-        
+
 
 ###############################################################################################################
 
@@ -219,7 +257,10 @@ def closeCameraEffectToggleButtonWithTakingAction(WindowsCameraAppDriver, mode :
 
 def takeVideosPhotos(WindowsCameraAppDriver, mode : CameraMode):
 
-    print("Take videos/photos")
+    if (mode == CameraMode.VIDEO_MODE):
+        print("Take video")
+    else:
+        print("Take photo")
     if not TAKE_VIDEOS_PHOTOS_ACTION:
         time.sleep(OPERATION_WAIT_DURATION)
         return
@@ -279,7 +320,7 @@ def clearAllEffects(WindowsCameraAppDriver):
             mepEffectButton = toggleSwitchButtons[len(MEP_EFFECTS) - 1]
         else:
             mepEffectButton = WindowsCameraAppDriver.find_element_by_name(effect)
-        
+
         # un-toggle if the effect already been enabled
         if mepEffectButton.is_selected():
             mepEffectButton.click()
@@ -364,7 +405,7 @@ def testEachCameraEffectCombinations(WindowsCameraAppDriver, mode : CameraMode):
     for r in range(len(MEP_EFFECTS)+1):
         for combination in itertools.combinations(MEP_EFFECTS, r):
             ToggleButtonCombinations.append(combination)
-    
+
     # to test all combinations for MEP effects
     for tuple in ToggleButtonCombinations:
         # start config desired combination
@@ -389,10 +430,10 @@ def testEachCameraEffectCombinations(WindowsCameraAppDriver, mode : CameraMode):
 
         if not isBlurEffectEnable:
             closeCameraEffectToggleButtonWithTakingAction(WindowsCameraAppDriver, mode)
-        
+
         # revert to original
         clearAllEffects(WindowsCameraAppDriver)
-    
+
     LightDismissButton = WindowsCameraAppDriver.find_element_by_name("Close")
     LightDismissButton.click()
 
@@ -568,7 +609,7 @@ for i in range(NUMBER_OF_TEST_ITERATIONS):
     print("INTERATION [", (i + 1), " / ", NUMBER_OF_TEST_ITERATIONS,"]")
     testEffectsOnVariousQualities(CameraMode.VIDEO_MODE)
     time.sleep(OPERATION_WAIT_DURATION)
-    # testEffectsOnVariousQualities(CameraMode.PHOTO_MODE)
-    # time.sleep(OPERATION_WAIT_DURATION)
+    testEffectsOnVariousQualities(CameraMode.PHOTO_MODE)
+    time.sleep(OPERATION_WAIT_DURATION)
     # monitorFrameServerServiceStatus()
     # time.sleep(OPERATION_WAIT_DURATION)
