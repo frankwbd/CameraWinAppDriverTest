@@ -8,6 +8,7 @@ import itertools
 from appium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from enum import Enum
+from datetime import datetime
 
 ###############################################################################################################
 
@@ -93,7 +94,7 @@ def launchCameraApp():
 
     if (not checkConnection()):
         execWinAppDriver()
-        print('exec_win_app_driver')
+        print('execWinAppDriver')
 
     # Set desired capabilities to launch the Camera app
     desired_caps = {
@@ -257,11 +258,7 @@ def closeCameraEffectToggleButtonWithTakingAction(WindowsCameraAppDriver, mode :
 
 def takeVideosPhotos(WindowsCameraAppDriver, mode : CameraMode):
 
-    if (mode == CameraMode.VIDEO_MODE):
-        print("Take video")
-    else:
-        print("Take photo")
-    if not TAKE_VIDEOS_PHOTOS_ACTION:
+    if ((mode == CameraMode.VIDEO_MODE) and (not TAKE_VIDEOS_PHOTOS_ACTION)):
         time.sleep(OPERATION_WAIT_DURATION)
         return
 
@@ -606,7 +603,8 @@ def monitorFrameServerServiceStatus():
 '''
 # Call the test function 100 times
 for i in range(NUMBER_OF_TEST_ITERATIONS):
-    print("INTERATION [", (i + 1), " / ", NUMBER_OF_TEST_ITERATIONS,"]")
+    timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
+    print("INTERATION [", (i + 1), " / ", NUMBER_OF_TEST_ITERATIONS,"], TIME: ", timeStr)
     testEffectsOnVariousQualities(CameraMode.VIDEO_MODE)
     time.sleep(OPERATION_WAIT_DURATION)
     testEffectsOnVariousQualities(CameraMode.PHOTO_MODE)
