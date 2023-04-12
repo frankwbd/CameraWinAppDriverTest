@@ -1,5 +1,6 @@
 import time
 import os
+import glob
 import re
 import socket
 import subprocess
@@ -17,6 +18,8 @@ IP_ADDR = "127.0.0.1"
 PORT_NUMBER = 4723
 REMOTE_TARGET = "http://" + IP_ADDR + ":" + str(PORT_NUMBER)
 
+CAPTURE_FILE_FOLDER_PATH = "C:\\Users\\" + os.getlogin() + "\\Pictures\\Camera Roll\\*"
+
 # the duration (in second) of video recording
 VIDEO_CAPTURE_DURATION = 30
 
@@ -24,12 +27,12 @@ VIDEO_CAPTURE_DURATION = 30
 OPERATION_WAIT_DURATION = 1
 
 # the number of iterations for veryfying both videos/photos MEP effects
-NUMBER_OF_TEST_ITERATIONS = 1
+NUMBER_OF_TEST_ITERATIONS = 10
 
 # to take video/photo or not,
 # 0: not to take
 # 1: to take
-TAKE_VIDEOS_PHOTOS_ACTION = 0
+TAKE_VIDEOS_PHOTOS_ACTION = 1
 
 # the number of seconds for operation torrelance
 IMPLICITLY_WAIT_TIME = 3
@@ -258,22 +261,18 @@ def closeCameraEffectToggleButtonWithTakingAction(WindowsCameraAppDriver, mode :
 
 def takeVideosPhotos(WindowsCameraAppDriver, mode : CameraMode):
 
-    if ((mode == CameraMode.VIDEO_MODE) and (not TAKE_VIDEOS_PHOTOS_ACTION)):
-        time.sleep(OPERATION_WAIT_DURATION)
-        return
-
     if (mode == CameraMode.VIDEO_MODE):
         takenButtom = WindowsCameraAppDriver.find_element_by_name("Take video")
     else:
         takenButtom = WindowsCameraAppDriver.find_element_by_name("Take photo")
     takenButtom.click()
+    time.sleep(OPERATION_WAIT_DURATION)
 
     # for video mode, we have to delay VIDEO_CAPTURE_DURATION for recording
     if (mode == CameraMode.VIDEO_MODE):
         time.sleep(VIDEO_CAPTURE_DURATION)
         stopTakingVideoButtom = WindowsCameraAppDriver.find_element_by_name("Stop taking video")
         stopTakingVideoButtom.click()
-
     time.sleep(OPERATION_WAIT_DURATION)
 
 ###############################################################################################################
@@ -492,6 +491,22 @@ def reUpdateQualityList(WindowsCameraAppDriver, settingsButton, qualityButton, m
 ###############################################################################################################
 
 '''
+    removeFilesFromStorage is to remove all recorded files from given path
+'''
+
+def removeFilesFromStorage():
+    files = glob.glob(CAPTURE_FILE_FOLDER_PATH)
+    for f in files:
+        try:
+            os.remove(f)
+        except:
+            print("Error while deleting file ", f)
+
+###############################################################################################################
+
+###############################################################################################################
+
+'''
     testEffectsOnVariousQualities is to test MEP effects:
     1. launch Camera app
     2. switch to VIDEOS/PHOTOS mode depends on the input parameter
@@ -576,6 +591,8 @@ def testEffectsOnVariousQualities(mode : CameraMode):
             qualityLists = reUpdateQualityList(WindowsCameraAppDriver, settingsButton, qualityButton, mode)
 
     closeCameraApp(WindowsCameraAppDriver)
+    removeFilesFromStorage()
+    return True
 
 ###############################################################################################################
 
@@ -595,19 +612,37 @@ def monitorFrameServerServiceStatus():
 ###############################################################################################################
 
 ###############################################################################################################
+class CameraEffectsTests(unittest.TestCase):
 
-'''
-    This is the main function of test procedure:
-    1. CameraMode.VIDEO_MODE: to verity MEP effects on videos
-    2. CameraMode.PHOTO_MODE: to verity MEP effects on photos
-'''
-# Call the test function 100 times
-for i in range(NUMBER_OF_TEST_ITERATIONS):
-    timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
-    print("INTERATION [", (i + 1), " / ", NUMBER_OF_TEST_ITERATIONS,"], TIME: ", timeStr)
-    testEffectsOnVariousQualities(CameraMode.VIDEO_MODE)
-    time.sleep(OPERATION_WAIT_DURATION)
-    testEffectsOnVariousQualities(CameraMode.PHOTO_MODE)
-    time.sleep(OPERATION_WAIT_DURATION)
-    # monitorFrameServerServiceStatus()
-    # time.sleep(OPERATION_WAIT_DURATION)
+    @classmethod
+
+    def setUpClass(self):
+        timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
+        print("start CameraEffectsTests [", timeStr, "]")
+        removeFilesFromStorage()
+
+    @classmethod
+    def tearDownClass(self):
+        timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
+        print("stop CameraEffectsTests[", timeStr, "]")
+
+    def test_functional_video_mode(self):
+        # CameraMode.VIDEO_MODE: to verity MEP effects on videos
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+
+    def test_functional_photo_mode(self):
+        # CameraMode.PHOTO_MODE: to verity MEP effects on photos
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+
+    def test_stress_video_photo_mode_iterations(self):
+        for i in range(NUMBER_OF_TEST_ITERATIONS):
+            timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
+            print("INTERATION [", (i + 1), " / ", NUMBER_OF_TEST_ITERATIONS,"], TIME:", timeStr)
+            self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+            time.sleep(OPERATION_WAIT_DURATION)
+            self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+            time.sleep(OPERATION_WAIT_DURATION)
+
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(CameraEffectsTests)
+    unittest.TextTestRunner(verbosity=2).run(suite)
