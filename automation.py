@@ -6,6 +6,7 @@ import socket
 import subprocess
 import unittest
 import itertools
+import rotatescreen
 from appium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from enum import Enum
@@ -27,7 +28,7 @@ VIDEO_CAPTURE_DURATION = 30
 OPERATION_WAIT_DURATION = 1
 
 # the number of iterations for veryfying both videos/photos MEP effects
-NUMBER_OF_TEST_ITERATIONS = 10
+NUMBER_OF_TEST_ITERATIONS = 1000
 
 # to take video/photo or not,
 # 0: not to take
@@ -260,6 +261,10 @@ def closeCameraEffectToggleButtonWithTakingAction(WindowsCameraAppDriver, mode :
 '''
 
 def takeVideosPhotos(WindowsCameraAppDriver, mode : CameraMode):
+
+    if (mode == CameraMode.VIDEO_MODE):
+        time.sleep(OPERATION_WAIT_DURATION)
+        return
 
     if (mode == CameraMode.VIDEO_MODE):
         takenButtom = WindowsCameraAppDriver.find_element_by_name("Take video")
@@ -642,6 +647,23 @@ class CameraEffectsTests(unittest.TestCase):
             time.sleep(OPERATION_WAIT_DURATION)
             self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
             time.sleep(OPERATION_WAIT_DURATION)
+
+    def test_orientation(self):
+        screen = rotatescreen.get_primary_display()
+        curOrientation = screen.current_orientation
+        screen.set_landscape()
+        print("curOrientation:", screen.current_orientation)
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+        screen.set_portrait()
+        print("curOrientation:", screen.current_orientation)
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+        screen.set_landscape_flipped()
+        print("curOrientation:", screen.current_orientation)
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+        screen.set_portrait_flipped()
+        print("curOrientation:", screen.current_orientation)
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+        screen.rotate_to(curOrientation)
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(CameraEffectsTests)
