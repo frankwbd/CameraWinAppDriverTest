@@ -61,6 +61,12 @@ FLICKER_REDUCTION = [
     "60 Hz",
 ]
 
+# the max height can apply MEP effects
+MAXIMUM_MEP_RESOLUTION_HEIGHT = 1440
+
+# the min height can apply MEP effects
+MINIMUM_MEP_RESOLUTION_HEIGHT = 360
+
 DEVELOPER_MODE_REG_KEY = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
 DEVELOPER_MODE_REG_NAME = "AllowDevelopmentWithoutDevLicense"
 DEVELOPER_MODE_REG_TYPE = "REG_DWORD"
@@ -90,15 +96,6 @@ def execWinAppDriver():
 '''
 
 def launchCameraApp():
-
-    if (selectAllowDevelopmentWithoutDevLicense() == '0x0'):
-        updateAllowDevelopmentWithoutDevLicense(1)
-        time.sleep(1)
-        print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
-
-    if (not checkConnection()):
-        execWinAppDriver()
-        print('execWinAppDriver')
 
     # Set desired capabilities to launch the Camera app
     desired_caps = {
@@ -132,11 +129,6 @@ def closeCameraApp(WindowsCameraAppDriver):
     # Quit the Windows Application Driver
     WindowsCameraAppDriver.quit()
 
-    if ((not checkConnection()) and (selectAllowDevelopmentWithoutDevLicense() == '0x1')):
-        updateAllowDevelopmentWithoutDevLicense(0)
-        time.sleep(OPERATION_WAIT_DURATION)
-        print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
-
 ###############################################################################################################
 
 ###############################################################################################################
@@ -165,6 +157,7 @@ def switchCameraCheckMEPPackageExist(WindowsCameraAppDriver):
         except NoSuchElementException:
             print("No MEP packages installed in this device, please check!!")
             closeCameraApp(WindowsCameraAppDriver)
+            return False
 
         print("Not able to find MEP effects, switch to another camera!")
         changeCameraButton.click()
@@ -174,6 +167,9 @@ def switchCameraCheckMEPPackageExist(WindowsCameraAppDriver):
         except NoSuchElementException:
             print("No MEP packages installed in this device, please check!!")
             closeCameraApp(WindowsCameraAppDriver)
+            return False
+
+    return True
 
 ###############################################################################################################
 
@@ -237,16 +233,29 @@ def switchToPhotoMode(WindowsCameraAppDriver):
 def closeCameraEffectToggleButtonWithTakingAction(WindowsCameraAppDriver, mode : CameraMode):
 
     # to close CameraEffectToggleButton
-    LightDismissButton = WindowsCameraAppDriver.find_element_by_name("Close")
+    try:
+        LightDismissButton = WindowsCameraAppDriver.find_element_by_name("Close")
+    except NoSuchElementException:
+        print("can not find close button in MEP setting page")
+        return False
+
     LightDismissButton.click()
     time.sleep(OPERATION_WAIT_DURATION)
 
     # to take video clips/photos
-    takeVideosPhotos(WindowsCameraAppDriver, mode)
+    if not takeVideosPhotos(WindowsCameraAppDriver, mode):
+        print("take action fail")
+        return False
 
-    CameraEffectToggleButton = WindowsCameraAppDriver.find_element_by_name("Windows Studio effects")
+    try:
+        CameraEffectToggleButton = WindowsCameraAppDriver.find_element_by_name("Windows Studio effects")
+    except NoSuchElementException:
+        print("can not find Windows Studio effects option")
+        return False
     CameraEffectToggleButton.click()
     time.sleep(OPERATION_WAIT_DURATION)
+
+    return True
 
 ###############################################################################################################
 
@@ -264,21 +273,33 @@ def takeVideosPhotos(WindowsCameraAppDriver, mode : CameraMode):
 
     if (mode == CameraMode.VIDEO_MODE):
         time.sleep(OPERATION_WAIT_DURATION)
-        return
+        return True
 
     if (mode == CameraMode.VIDEO_MODE):
-        takenButtom = WindowsCameraAppDriver.find_element_by_name("Take video")
+        takenButtomStr = "Take video"
     else:
-        takenButtom = WindowsCameraAppDriver.find_element_by_name("Take photo")
+        takenButtomStr = "Take photo"
+
+    try:
+        takenButtom = WindowsCameraAppDriver.find_element_by_name(takenButtomStr)
+    except NoSuchElementException:
+        print("can not find", takenButtomStr, "button")
+        return False
     takenButtom.click()
     time.sleep(OPERATION_WAIT_DURATION)
 
     # for video mode, we have to delay VIDEO_CAPTURE_DURATION for recording
     if (mode == CameraMode.VIDEO_MODE):
         time.sleep(VIDEO_CAPTURE_DURATION)
-        stopTakingVideoButtom = WindowsCameraAppDriver.find_element_by_name("Stop taking video")
+        try:
+            stopTakingVideoButtom = WindowsCameraAppDriver.find_element_by_name("Stop taking video")
+        except NoSuchElementException:
+            print("no Stop taking video button")
+            return False
         stopTakingVideoButtom.click()
     time.sleep(OPERATION_WAIT_DURATION)
+
+    return True
 
 ###############################################################################################################
 
@@ -293,9 +314,15 @@ def takeVideosPhotos(WindowsCameraAppDriver, mode : CameraMode):
 
 def updateCameraEffectList(WindowsCameraAppDriver):
     if len(MEP_EFFECTS) == 0:
-        toggleSwitchButtons = WindowsCameraAppDriver.find_elements_by_class_name("ToggleSwitch")
+        try:
+            toggleSwitchButtons = WindowsCameraAppDriver.find_elements_by_class_name("ToggleSwitch")
+        except NoSuchElementException:
+            print("can not find MEP effect options in Camera effect option")
+            return False
+
         for switchButton in toggleSwitchButtons:
             MEP_EFFECTS.append(switchButton.text)
+    return True
 
 ###############################################################################################################
 
@@ -312,20 +339,32 @@ def updateCameraEffectList(WindowsCameraAppDriver):
 def clearAllEffects(WindowsCameraAppDriver):
 
     # to update effect list if necessary
-    updateCameraEffectList(WindowsCameraAppDriver)
+    if not updateCameraEffectList(WindowsCameraAppDriver):
+        print("updateCameraEffectList fail")
+        return False
 
     # reset toggle button to OFF
     for effect in MEP_EFFECTS:
         if effect == "Background effects":
-            toggleSwitchButtons = WindowsCameraAppDriver.find_elements_by_class_name("ToggleSwitch")
+            try:
+                toggleSwitchButtons = WindowsCameraAppDriver.find_elements_by_class_name("ToggleSwitch")
+            except NoSuchElementException:
+                print("can not find background blur radio option")
+                return False
             mepEffectButton = toggleSwitchButtons[len(MEP_EFFECTS) - 1]
         else:
-            mepEffectButton = WindowsCameraAppDriver.find_element_by_name(effect)
+            try:
+                mepEffectButton = WindowsCameraAppDriver.find_element_by_name(effect)
+            except NoSuchElementException:
+                print("can not find", effect)
+                return False
 
         # un-toggle if the effect already been enabled
         if mepEffectButton.is_selected():
             mepEffectButton.click()
             time.sleep(OPERATION_WAIT_DURATION)
+
+    return True
 
 ###############################################################################################################
 
@@ -348,13 +387,23 @@ def testEachCameraEffect(WindowsCameraAppDriver, mode : CameraMode):
     CameraEffectToggleButton.click()
 
     # reset toggle button to OFF
-    clearAllEffects(WindowsCameraAppDriver)
+    if not clearAllEffects(WindowsCameraAppDriver):
+        print("clearAllEffects fail")
+        return False
 
     for idx, effect in enumerate(MEP_EFFECTS):
-        mepEffectButton = WindowsCameraAppDriver.find_element_by_name(effect)
+        try:
+            mepEffectButton = WindowsCameraAppDriver.find_element_by_name(effect)
+        except NoSuchElementException:
+            print("can not find", effect)
+            return False
 
         if effect == "Background effects":
-            toggleSwitchButtons = WindowsCameraAppDriver.find_elements_by_class_name("ToggleSwitch")
+            try:
+                toggleSwitchButtons = WindowsCameraAppDriver.find_elements_by_class_name("ToggleSwitch")
+            except NoSuchElementException:
+                print("can not find", effect)
+                return False
             mepEffectButton = toggleSwitchButtons[idx]
 
         mepEffectButton.click()
@@ -362,21 +411,34 @@ def testEachCameraEffect(WindowsCameraAppDriver, mode : CameraMode):
 
         if effect == "Background effects":
             for i, blurEffect in enumerate(BACKGROUND_EFFECTS):
-                blurEffectButton = WindowsCameraAppDriver.find_element_by_name(blurEffect)
+                try:
+                    blurEffectButton = WindowsCameraAppDriver.find_element_by_name(blurEffect)
+                except NoSuchElementException:
+                    print("can not find background blur radio option")
+                    return False
                 blurEffectButton.click()
 
-                closeCameraEffectToggleButtonWithTakingAction(WindowsCameraAppDriver, mode)
+                if not closeCameraEffectToggleButtonWithTakingAction(WindowsCameraAppDriver, mode):
+                    print("closeCameraEffectToggleButtonWithTakingAction fail")
+                    return False
 
                 if (i == (len(BACKGROUND_EFFECTS) - 1)):
                     mepEffectButton.click()
                     time.sleep(OPERATION_WAIT_DURATION)
         else:
-            closeCameraEffectToggleButtonWithTakingAction(WindowsCameraAppDriver, mode)
+            if not closeCameraEffectToggleButtonWithTakingAction(WindowsCameraAppDriver, mode):
+                print("closeCameraEffectToggleButtonWithTakingAction fail")
+                return False
             mepEffectButton.click()
             time.sleep(OPERATION_WAIT_DURATION)
 
-    LightDismissButton = WindowsCameraAppDriver.find_element_by_name("Close")
+    try:
+        LightDismissButton = WindowsCameraAppDriver.find_element_by_name("Close")
+    except NoSuchElementException:
+        print("can not find close button in MEP setting page")
+        return False
     LightDismissButton.click()
+    return True
 
 ###############################################################################################################
 
@@ -399,7 +461,9 @@ def testEachCameraEffectCombinations(WindowsCameraAppDriver, mode : CameraMode):
     CameraEffectToggleButton.click()
 
     # reset toggle button to OFF
-    clearAllEffects(WindowsCameraAppDriver)
+    if not clearAllEffects(WindowsCameraAppDriver):
+        print("clear all existing effect fail")
+        return False
 
     # generate all combinations for MEP effects
     ToggleButtonCombinations = []
@@ -437,6 +501,7 @@ def testEachCameraEffectCombinations(WindowsCameraAppDriver, mode : CameraMode):
 
     LightDismissButton = WindowsCameraAppDriver.find_element_by_name("Close")
     LightDismissButton.click()
+    return True
 
 ###############################################################################################################
 
@@ -449,47 +514,43 @@ def testEachCameraEffectCombinations(WindowsCameraAppDriver, mode : CameraMode):
 
     [input] handle of WinAppDriver
     [input] VIDEO_MODE or CAMERA_MODE
+    [input][output] list of available MEP effect index
 
     [output] list of all existing quality options
 '''
 
-def retrieveQualityList(WindowsCameraAppDriver, mode : CameraMode):
+def retrieveQualityList(WindowsCameraAppDriver, mode : CameraMode, qualityListsIdx):
 
     # query quality options
-    qualityLists = WindowsCameraAppDriver.find_elements_by_class_name("ComboBoxItem")
+    qualityComboBoxItems = WindowsCameraAppDriver.find_elements_by_class_name("ComboBoxItem")
+    qualityLists = []
 
     # there is "Flicker reduction" ComboBox in Video quality page,
     # to remove those flicker options to keep quality options only
     if (mode == CameraMode.VIDEO_MODE):
         for flicker in FLICKER_REDUCTION:
-            for vq in qualityLists:
+            for vq in qualityComboBoxItems:
                 if (vq.text == flicker):
-                    qualityLists.remove(vq)
+                    qualityComboBoxItems.remove(vq)
+
+    for idx, item in enumerate(qualityComboBoxItems):
+        qualityLists.append(item.text)
+        height = 0
+        if (mode == CameraMode.VIDEO_MODE):
+            # 1080p, 16 by 9 aspect ratio, 30 fps
+            pos = item.text.find("p")
+            height = int(item.text[0:pos])
+        else:
+            # 2.1 megapixels, 16 by 9 aspect ratio,  1920 by 1080 resolution
+            pos = item.text.find(",  ")
+            tmpStr = item.text[pos:]
+            pos = tmpStr.find(" by ")
+            height = int(tmpStr[pos+3:len(tmpStr)-11])
+
+        if (height <= MAXIMUM_MEP_RESOLUTION_HEIGHT) and (height >= MINIMUM_MEP_RESOLUTION_HEIGHT):
+            qualityListsIdx.append(idx)
 
     return qualityLists
-
-###############################################################################################################
-
-###############################################################################################################
-
-'''
-    reUpdateQualityList is to re-update the quality lists,
-    has to click setting button first and go into "Photos settings" or "Videos settings" as desired
-
-    [input] handle of WinAppDriver
-    [input] instance of setting button
-    [input] instance of quality button
-    [input] VIDEO_MODE or CAMERA_MODE
-
-    [output] list of all existing quality options
-'''
-
-def reUpdateQualityList(WindowsCameraAppDriver, settingsButton, qualityButton, mode : CameraMode):
-    settingsButton.click()
-    time.sleep(OPERATION_WAIT_DURATION)
-    qualityButton.click()
-    time.sleep(OPERATION_WAIT_DURATION)
-    return retrieveQualityList(WindowsCameraAppDriver, mode)
 
 ###############################################################################################################
 
@@ -506,6 +567,7 @@ def removeFilesFromStorage():
             os.remove(f)
         except:
             print("Error while deleting file ", f)
+            return False
 
 ###############################################################################################################
 
@@ -526,6 +588,9 @@ def testEffectsOnVariousQualities(mode : CameraMode):
 
     # trying to open WindowsCamera app
     WindowsCameraAppDriver = launchCameraApp()
+    if not WindowsCameraAppDriver:
+        print("create WindowsCameraAppDriver fail")
+        return False
 
     # Switch to correct mode if necessary
     if (mode == CameraMode.VIDEO_MODE):
@@ -534,22 +599,35 @@ def testEffectsOnVariousQualities(mode : CameraMode):
         switchToPhotoMode(WindowsCameraAppDriver)
 
     # Open settings menu
-    settingsButton = WindowsCameraAppDriver.find_element_by_name("Open Settings Menu")
+    try:
+        settingsButton = WindowsCameraAppDriver.find_element_by_name("Open Settings Menu")
+    except NoSuchElementException:
+        print("no Open Settings Menu button")
+        return False
     settingsButton.click()
     time.sleep(OPERATION_WAIT_DURATION)
 
     # switch quality settings and click
     if (mode == CameraMode.VIDEO_MODE):
-        qualitySettingsButton = WindowsCameraAppDriver.find_element_by_name("Videos settings")
+        settingStr = "Videos settings"
     else:
-        qualitySettingsButton = WindowsCameraAppDriver.find_element_by_name("Photos settings")
+        settingStr = "Photos settings"
+
+    try:
+        qualitySettingsButton = WindowsCameraAppDriver.find_element_by_name(settingStr)
+    except NoSuchElementException:
+        print("no", settingStr, "option")
+        return False
     qualitySettingsButton.click()
     time.sleep(OPERATION_WAIT_DURATION)
 
     # two combo box should be there: "Video quality" / "Flicker reduction" in videos settings
     # only one combo box there: "Photo quality"  in photos settings
-    ComboBoxLists = WindowsCameraAppDriver.find_elements_by_class_name("ComboBox")
-    time.sleep(OPERATION_WAIT_DURATION)
+    try:
+        ComboBoxLists = WindowsCameraAppDriver.find_elements_by_class_name("ComboBox")
+    except NoSuchElementException:
+        print("no ComboBox option for qualities")
+        return False
 
     # toggle quality option
     qualityButton = ComboBoxLists[0]
@@ -557,43 +635,50 @@ def testEffectsOnVariousQualities(mode : CameraMode):
     time.sleep(OPERATION_WAIT_DURATION)
 
     # query quality options
-    qualityLists = retrieveQualityList(WindowsCameraAppDriver, mode)
+    qualityListsIdx = []
+    qualityLists = retrieveQualityList(WindowsCameraAppDriver, mode, qualityListsIdx)
 
     # test on various photo qualities
-    for idx, vq in enumerate(qualityLists):
+    for idx in qualityListsIdx:
 
-        if (idx >= len(qualityLists)):
-            break
-
-        # Switch to different resolutions
-        qualityLists[idx].click()
+        # Switch to target resolutions
+        WindowsCameraAppDriver.find_element_by_name(qualityLists[idx]).click()
         time.sleep(OPERATION_WAIT_DURATION)
 
         # back to camera view
-        backButton = WindowsCameraAppDriver.find_element_by_name("Back")
+        try:
+            backButton = WindowsCameraAppDriver.find_element_by_name("Back")
+        except NoSuchElementException:
+            print("no Back button in quality setting page")
+            return False
         backButton.click()
         time.sleep(OPERATION_WAIT_DURATION)
 
-        # some resolutions are out of MEP scope, skip these quality
+        # return fail if no "Windows Studio effects" button found
         try:
             WindowsCameraAppDriver.find_element_by_name("Windows Studio effects")
         except NoSuchElementException:
-            if (idx < (len(qualityLists) - 1)):
-                qualityLists = reUpdateQualityList(WindowsCameraAppDriver, settingsButton, qualityButton, mode)
-                continue
+            print("no MEP effect button for resolution:", qualityLists[idx])
+            return False
 
         # start to verify each photo effects for specific photo quality
         if (mode == CameraMode.VIDEO_MODE):
             qulityStr = "Videos Quality:"
         else:
             qulityStr = "Photos Quality:"
-        print(qulityStr, qualityLists[idx].text)
+        print(qulityStr, qualityLists[idx])
 
-        testEachCameraEffectCombinations(WindowsCameraAppDriver, mode)
+        if not testEachCameraEffectCombinations(WindowsCameraAppDriver, mode):
+            closeCameraApp(WindowsCameraAppDriver)
+            print("testEachCameraEffectCombinations fail")
+            return False
 
         # if necessary, open setting buttom again to switch another resolution
-        if (idx < (len(qualityLists) - 1)):
-            qualityLists = reUpdateQualityList(WindowsCameraAppDriver, settingsButton, qualityButton, mode)
+        if (idx != qualityListsIdx[-1]):
+            settingsButton.click()
+            time.sleep(OPERATION_WAIT_DURATION)
+            qualityButton.click()
+            time.sleep(OPERATION_WAIT_DURATION)
 
     closeCameraApp(WindowsCameraAppDriver)
     removeFilesFromStorage()
@@ -622,48 +707,72 @@ class CameraEffectsTests(unittest.TestCase):
     @classmethod
 
     def setUpClass(self):
+
+        # if (selectAllowDevelopmentWithoutDevLicense() == '0x0'):
+        #     updateAllowDevelopmentWithoutDevLicense(1)
+        #     time.sleep(1)
+        #     print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
+
+        if (not checkConnection()):
+            execWinAppDriver()
+
         timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
         print("start CameraEffectsTests [", timeStr, "]")
         removeFilesFromStorage()
 
     @classmethod
     def tearDownClass(self):
+
         timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
-        print("stop CameraEffectsTests[", timeStr, "]")
+        print("finish CameraEffectsTests[", timeStr, "]")
 
-    def test_functional_video_mode(self):
-        # CameraMode.VIDEO_MODE: to verity MEP effects on videos
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+        # if ((not checkConnection()) and (selectAllowDevelopmentWithoutDevLicense() == '0x1')):
+        #     updateAllowDevelopmentWithoutDevLicense(0)
+        #     time.sleep(OPERATION_WAIT_DURATION)
+        #     print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
 
-    def test_functional_photo_mode(self):
-        # CameraMode.PHOTO_MODE: to verity MEP effects on photos
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    # def test_a_functional_video_mode(self):
+    #     # CameraMode.VIDEO_MODE: to verity MEP effects on videos
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
 
-    def test_stress_video_photo_mode_iterations(self):
+    # def test_b_functional_photo_mode(self):
+    #     # CameraMode.PHOTO_MODE: to verity MEP effects on photos
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+
+    # def test_c_orientation_combinations(self):
+    #     screen = rotatescreen.get_primary_display()
+    #     curOrientation = screen.current_orientation
+    #     screen.set_landscape()
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+    #     screen.set_portrait()
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+    #     screen.set_landscape_flipped()
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+    #     screen.set_portrait_flipped()
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+    #     screen.rotate_to(curOrientation)
+
+    # def test_d_power_combinations(self):
+    #     os.system(r".\\enableDCPowerSimulation.vbs")
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+    #     os.system(r".\\enableACPowerSimulation.vbs")
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+    #     os.system(r".\\disablePowerSimulation.vbs")
+
+    def test_e_stress_video_photo_mode_iterations(self):
         for i in range(NUMBER_OF_TEST_ITERATIONS):
             timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
-            print("INTERATION [", (i + 1), " / ", NUMBER_OF_TEST_ITERATIONS,"], TIME:", timeStr)
+            print("\nINTERATION [", (i + 1), " / ", NUMBER_OF_TEST_ITERATIONS,"], TIME:", timeStr)
             self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
             time.sleep(OPERATION_WAIT_DURATION)
             self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
             time.sleep(OPERATION_WAIT_DURATION)
-
-    def test_orientation(self):
-        screen = rotatescreen.get_primary_display()
-        curOrientation = screen.current_orientation
-        screen.set_landscape()
-        print("curOrientation:", screen.current_orientation)
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-        screen.set_portrait()
-        print("curOrientation:", screen.current_orientation)
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-        screen.set_landscape_flipped()
-        print("curOrientation:", screen.current_orientation)
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-        screen.set_portrait_flipped()
-        print("curOrientation:", screen.current_orientation)
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-        screen.rotate_to(curOrientation)
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(CameraEffectsTests)
