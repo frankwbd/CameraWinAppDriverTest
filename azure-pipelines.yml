@@ -10,5 +10,9 @@ pool:
   vmImage: 'ubuntu-latest'
 steps:
 - bash: echo "Hello world"
-trigger:  
-    batch: true
+- task: Windows Application Driver@0
+  inputs:
+    OperationType: 'Start'
+- task: Windows Application Driver@0
+  inputs:
+    OperationType: 'Stop'
