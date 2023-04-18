@@ -7,7 +7,7 @@ trigger:
 - none
 
 pool:  
-  name: local 
+  name: default
 steps:
 - bash: echo "Hello world"
 - task: Windows Application Driver@0
