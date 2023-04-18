@@ -10,3 +10,5 @@ pool:
   vmImage: 'ubuntu-latest'
 steps:
 - bash: echo "Hello world"
+trigger:  
+    batch: true
