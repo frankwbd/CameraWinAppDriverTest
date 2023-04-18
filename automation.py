@@ -36,7 +36,7 @@ NUMBER_OF_TEST_ITERATIONS = 1000
 TAKE_VIDEOS_PHOTOS_ACTION = 1
 
 # the number of seconds for operation torrelance
-IMPLICITLY_WAIT_TIME = 3
+IMPLICITLY_WAIT_TIME = 5
 
 class CameraMode(Enum):
     VIDEO_MODE = 0
@@ -684,6 +684,39 @@ def testEffectsOnVariousQualities(mode : CameraMode):
     removeFilesFromStorage()
     return True
 
+
+def testVideoRecordingChecking():
+
+    # trying to open WindowsCamera app
+    WindowsCameraAppDriver = launchCameraApp()
+    if not WindowsCameraAppDriver:
+        print("create WindowsCameraAppDriver fail")
+        return False
+
+    while True:
+        try:
+            takenButtom = WindowsCameraAppDriver.find_element_by_name("Take video")
+        except NoSuchElementException:
+            print("can not find taking video button")
+            return False
+        takenButtom.click()
+        time.sleep(OPERATION_WAIT_DURATION)
+
+        # for video mode, we have to delay VIDEO_CAPTURE_DURATION for recording
+        time.sleep(VIDEO_CAPTURE_DURATION)
+
+        try:
+            stopTakingVideoButtom = WindowsCameraAppDriver.find_element_by_name("Stop taking video")
+        except NoSuchElementException:
+            print("no Stop taking video button")
+            return False
+        stopTakingVideoButtom.click()
+        time.sleep(OPERATION_WAIT_DURATION)
+
+    closeCameraApp(WindowsCameraAppDriver)
+    removeFilesFromStorage()
+    return True
+
 ###############################################################################################################
 
 ###############################################################################################################
@@ -773,6 +806,9 @@ class CameraEffectsTests(unittest.TestCase):
             time.sleep(OPERATION_WAIT_DURATION)
             self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
             time.sleep(OPERATION_WAIT_DURATION)
+
+    # def test_conti_recording(self):
+    #     testVideoRecordingChecking()
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(CameraEffectsTests)
