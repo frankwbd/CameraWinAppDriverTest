@@ -9,7 +9,7 @@ trigger:
 pool:  
   name: default
 steps:
-- bash: echo "Hello world"
+- script: echo hello world
 - task: Windows Application Driver@0
   inputs:
     OperationType: 'Start'
