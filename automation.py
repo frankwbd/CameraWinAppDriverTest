@@ -71,13 +71,13 @@ DEVELOPER_MODE_REG_KEY = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentV
 DEVELOPER_MODE_REG_NAME = "AllowDevelopmentWithoutDevLicense"
 DEVELOPER_MODE_REG_TYPE = "REG_DWORD"
 
-def checkConnection(host=IP_ADDR, port=PORT_NUMBER):
+def checkConnection(host=IP_ADDR, port=PORT_NUMBER) -> bool:
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     r = s.connect_ex((host, port))
     s.close()
     return r == 0
 
-def selectAllowDevelopmentWithoutDevLicense():
+def selectAllowDevelopmentWithoutDevLicense() -> str:
     result = subprocess.run(['reg', 'query', DEVELOPER_MODE_REG_KEY, '/v', DEVELOPER_MODE_REG_NAME], check=True, encoding='utf-8', stdout=subprocess.PIPE)
     return re.sub(r'\n|\r', r'', re.sub(r' +', r' ', result.stdout)).split(' ')[-1]
 
@@ -148,7 +148,7 @@ def closeCameraApp(WindowsCameraAppDriver):
     [input] handle of WinAppDriver
 '''
 
-def switchCameraCheckMEPPackageExist(WindowsCameraAppDriver):
+def switchCameraCheckMEPPackageExist(WindowsCameraAppDriver) -> bool:
     try:
         MEPEffects = WindowsCameraAppDriver.find_element_by_name("Windows Studio effects")
     except NoSuchElementException:
@@ -181,7 +181,7 @@ def switchCameraCheckMEPPackageExist(WindowsCameraAppDriver):
     [input] handle of WinAppDriver
 '''
 
-def switchToVideoMode(WindowsCameraAppDriver):
+def switchToVideoMode(WindowsCameraAppDriver) -> bool:
     '''
         if is not in video mode,
         we can switch into photo mode first,
@@ -196,6 +196,7 @@ def switchToVideoMode(WindowsCameraAppDriver):
         videoModeButtom = WindowsCameraAppDriver.find_element_by_name("Switch to video mode")
         videoModeButtom.click()
         time.sleep(OPERATION_WAIT_DURATION)
+    return True
 
 
 ###############################################################################################################
@@ -208,13 +209,14 @@ def switchToVideoMode(WindowsCameraAppDriver):
     [input] handle of WinAppDriver
 '''
 
-def switchToPhotoMode(WindowsCameraAppDriver):
+def switchToPhotoMode(WindowsCameraAppDriver) -> bool:
     try:
         WindowsCameraAppDriver.find_element_by_name("Take photo")
     except NoSuchElementException:
         PhotoModeButtom = WindowsCameraAppDriver.find_element_by_name("Switch to photo mode")
         PhotoModeButtom.click()
         time.sleep(OPERATION_WAIT_DURATION)
+    return True
 
 ###############################################################################################################
 
@@ -230,7 +232,7 @@ def switchToPhotoMode(WindowsCameraAppDriver):
     [input] VIDEO_MODE or CAMERA_MODE
 '''
 
-def closeCameraEffectToggleButtonWithTakingAction(WindowsCameraAppDriver, mode : CameraMode):
+def closeCameraEffectToggleButtonWithTakingAction(WindowsCameraAppDriver, mode : CameraMode) -> bool:
 
     # to close CameraEffectToggleButton
     try:
@@ -269,11 +271,7 @@ def closeCameraEffectToggleButtonWithTakingAction(WindowsCameraAppDriver, mode :
     [input] VIDEO_MODE or CAMERA_MODE
 '''
 
-def takeVideosPhotos(WindowsCameraAppDriver, mode : CameraMode):
-
-    if (mode == CameraMode.VIDEO_MODE):
-        time.sleep(OPERATION_WAIT_DURATION)
-        return True
+def takeVideosPhotos(WindowsCameraAppDriver, mode : CameraMode) -> bool:
 
     if (mode == CameraMode.VIDEO_MODE):
         takenButtomStr = "Take video"
@@ -312,7 +310,7 @@ def takeVideosPhotos(WindowsCameraAppDriver, mode : CameraMode):
     [input] handle of WinAppDriver
 '''
 
-def updateCameraEffectList(WindowsCameraAppDriver):
+def updateCameraEffectList(WindowsCameraAppDriver) -> bool:
     if len(MEP_EFFECTS) == 0:
         try:
             toggleSwitchButtons = WindowsCameraAppDriver.find_elements_by_class_name("ToggleSwitch")
@@ -336,7 +334,7 @@ def updateCameraEffectList(WindowsCameraAppDriver):
     [input] handle of WinAppDriver
 '''
 
-def clearAllEffects(WindowsCameraAppDriver):
+def clearAllEffects(WindowsCameraAppDriver) -> bool:
 
     # to update effect list if necessary
     if not updateCameraEffectList(WindowsCameraAppDriver):
@@ -379,7 +377,7 @@ def clearAllEffects(WindowsCameraAppDriver):
     [input] VIDEO_MODE or CAMERA_MODE
 '''
 
-def testEachCameraEffect(WindowsCameraAppDriver, mode : CameraMode):
+def testEachCameraEffect(WindowsCameraAppDriver, mode : CameraMode) -> bool:
 
     # To open CameraEffect windows
     CameraEffectToggleButton = WindowsCameraAppDriver.find_element_by_name("Windows Studio effects")
@@ -453,7 +451,7 @@ def testEachCameraEffect(WindowsCameraAppDriver, mode : CameraMode):
     [input] VIDEO_MODE or CAMERA_MODE
 '''
 
-def testEachCameraEffectCombinations(WindowsCameraAppDriver, mode : CameraMode):
+def testEachCameraEffectCombinations(WindowsCameraAppDriver, mode : CameraMode) -> bool:
 
     # To open CameraEffect windows
     CameraEffectToggleButton = WindowsCameraAppDriver.find_element_by_name("Windows Studio effects")
@@ -519,7 +517,7 @@ def testEachCameraEffectCombinations(WindowsCameraAppDriver, mode : CameraMode):
     [output] list of all existing quality options
 '''
 
-def retrieveQualityList(WindowsCameraAppDriver, mode : CameraMode, qualityListsIdx):
+def retrieveQualityList(WindowsCameraAppDriver, mode : CameraMode, qualityListsIdx) -> tuple:
 
     # query quality options
     qualityComboBoxItems = WindowsCameraAppDriver.find_elements_by_class_name("ComboBoxItem")
@@ -560,7 +558,7 @@ def retrieveQualityList(WindowsCameraAppDriver, mode : CameraMode, qualityListsI
     removeFilesFromStorage is to remove all recorded files from given path
 '''
 
-def removeFilesFromStorage():
+def removeFilesFromStorage() -> bool:
     files = glob.glob(CAPTURE_FILE_FOLDER_PATH)
     for f in files:
         try:
@@ -568,6 +566,7 @@ def removeFilesFromStorage():
         except:
             print("Error while deleting file ", f)
             return False
+    return True
 
 ###############################################################################################################
 
@@ -584,7 +583,7 @@ def removeFilesFromStorage():
     [input] VIDEO_MODE or CAMERA_MODE
 '''
 
-def testEffectsOnVariousQualities(mode : CameraMode):
+def testEffectsOnVariousQualities(mode : CameraMode) -> bool:
 
     # trying to open WindowsCamera app
     WindowsCameraAppDriver = launchCameraApp()
@@ -685,7 +684,7 @@ def testEffectsOnVariousQualities(mode : CameraMode):
     return True
 
 
-def testVideoRecordingChecking():
+def testVideoRecordingChecking() -> bool:
 
     # trying to open WindowsCamera app
     WindowsCameraAppDriver = launchCameraApp()
@@ -738,7 +737,6 @@ def monitorFrameServerServiceStatus():
 class CameraEffectsTests(unittest.TestCase):
 
     @classmethod
-
     def setUpClass(self):
 
         # if (selectAllowDevelopmentWithoutDevLicense() == '0x0'):
@@ -768,9 +766,9 @@ class CameraEffectsTests(unittest.TestCase):
     #     # CameraMode.VIDEO_MODE: to verity MEP effects on videos
     #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
 
-    # def test_b_functional_photo_mode(self):
-    #     # CameraMode.PHOTO_MODE: to verity MEP effects on photos
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    def test_b_functional_photo_mode(self):
+        # CameraMode.PHOTO_MODE: to verity MEP effects on photos
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
 
     # def test_c_orientation_combinations(self):
     #     screen = rotatescreen.get_primary_display()
@@ -798,14 +796,14 @@ class CameraEffectsTests(unittest.TestCase):
     #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
     #     os.system(r".\\disablePowerSimulation.vbs")
 
-    def test_e_stress_video_photo_mode_iterations(self):
-        for i in range(NUMBER_OF_TEST_ITERATIONS):
-            timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
-            print("\nINTERATION [", (i + 1), " / ", NUMBER_OF_TEST_ITERATIONS,"], TIME:", timeStr)
-            self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-            time.sleep(OPERATION_WAIT_DURATION)
-            self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-            time.sleep(OPERATION_WAIT_DURATION)
+    # def test_e_stress_video_photo_mode_iterations(self):
+    #     for i in range(NUMBER_OF_TEST_ITERATIONS):
+    #         timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
+    #         print("\nINTERATION [", (i + 1), " / ", NUMBER_OF_TEST_ITERATIONS,"], TIME:", timeStr)
+    #         self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+    #         time.sleep(OPERATION_WAIT_DURATION)
+    #         self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    #         time.sleep(OPERATION_WAIT_DURATION)
 
     # def test_conti_recording(self):
     #     testVideoRecordingChecking()
