@@ -13,10 +13,6 @@ steps:
 - task: Windows Application Driver@0
   inputs:
     OperationType: 'Start'
-- task: PythonScript@0
-  inputs:
-    scriptSource: 'filePath'
-    scriptPath: 'automation.py'
 - task: Windows Application Driver@0
   inputs:
     OperationType: 'Stop'
