@@ -739,10 +739,10 @@ class CameraEffectsTests(unittest.TestCase):
     @classmethod
     def setUpClass(self):
 
-        # if (selectAllowDevelopmentWithoutDevLicense() == '0x0'):
-        #     updateAllowDevelopmentWithoutDevLicense(1)
-        #     time.sleep(1)
-        #     print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
+        if (selectAllowDevelopmentWithoutDevLicense() == '0x0'):
+            updateAllowDevelopmentWithoutDevLicense(1)
+            time.sleep(1)
+            print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
 
         if (not checkConnection()):
             execWinAppDriver()
@@ -757,10 +757,10 @@ class CameraEffectsTests(unittest.TestCase):
         timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
         print("finish CameraEffectsTests[", timeStr, "]")
 
-        # if ((not checkConnection()) and (selectAllowDevelopmentWithoutDevLicense() == '0x1')):
-        #     updateAllowDevelopmentWithoutDevLicense(0)
-        #     time.sleep(OPERATION_WAIT_DURATION)
-        #     print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
+        if ((not checkConnection()) and (selectAllowDevelopmentWithoutDevLicense() == '0x1')):
+            updateAllowDevelopmentWithoutDevLicense(0)
+            time.sleep(OPERATION_WAIT_DURATION)
+            print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
 
     # def test_a_functional_video_mode(self):
     #     # CameraMode.VIDEO_MODE: to verity MEP effects on videos
