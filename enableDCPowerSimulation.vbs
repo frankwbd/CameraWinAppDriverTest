@@ -33,8 +33,8 @@ SimulatedBatterySystemSystemAction.DisableRealBatteries()
 '  set to DC power status
 SimulatedBatterySystemSystemAction.SetSimulatedBatteryToDC()
 
-'  set to 80% charge level
-SimulatedBatterySystemSystemAction.SetSimulatedBatteryChargePercentage(90)
+'  set to 50% charge level
+SimulatedBatterySystemSystemAction.SetSimulatedBatteryChargePercentage(50)
 
 '
 ' It might be necessary to wait for second order effects of changing to DC propagate
