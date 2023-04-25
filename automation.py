@@ -28,7 +28,7 @@ VIDEO_CAPTURE_DURATION = 30
 OPERATION_WAIT_DURATION = 1
 
 # the number of iterations for veryfying both videos/photos MEP effects
-NUMBER_OF_TEST_ITERATIONS = 1000
+NUMBER_OF_TEST_ITERATIONS = 50
 
 # to take video/photo or not,
 # 0: not to take
@@ -762,13 +762,13 @@ class CameraEffectsTests(unittest.TestCase):
             time.sleep(OPERATION_WAIT_DURATION)
             print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
 
-    # def test_a_functional_video_mode(self):
-    #     # CameraMode.VIDEO_MODE: to verity MEP effects on videos
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+    def test_a_functional_video_mode(self):
+        # CameraMode.VIDEO_MODE: to verity MEP effects on videos
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
 
-    # def test_b_functional_photo_mode(self):
-    #     # CameraMode.PHOTO_MODE: to verity MEP effects on photos
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    def test_b_functional_photo_mode(self):
+        # CameraMode.PHOTO_MODE: to verity MEP effects on photos
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
 
     def test_c_orientation_combinations(self):
         screen = rotatescreen.get_primary_display()
@@ -792,26 +792,26 @@ class CameraEffectsTests(unittest.TestCase):
         print("revert to", curOrientation)
         screen.rotate_to(curOrientation)
 
-    # def test_d_power_combinations(self):
-    #     print("simulate 50% DC")
-    #     os.system(r".\\enableDCPowerSimulation.vbs")
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-    #     print("simulate 100% AC")
-    #     os.system(r".\\enableACPowerSimulation.vbs")
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-    #     print("disable power simulation")
-    #     os.system(r".\\disablePowerSimulation.vbs")
+    def test_d_power_combinations(self):
+        print("simulate 50% DC")
+        os.system(r".\\enableDCPowerSimulation.vbs")
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+        print("simulate 100% AC")
+        os.system(r".\\enableACPowerSimulation.vbs")
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+        print("disable power simulation")
+        os.system(r".\\disablePowerSimulation.vbs")
 
-    # def test_e_stress_video_photo_mode_iterations(self):
-    #     for i in range(NUMBER_OF_TEST_ITERATIONS):
-    #         timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
-    #         print("\nINTERATION [", (i + 1), " / ", NUMBER_OF_TEST_ITERATIONS,"], TIME:", timeStr)
-    #         self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-    #         time.sleep(OPERATION_WAIT_DURATION)
-    #         self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-    #         time.sleep(OPERATION_WAIT_DURATION)
+    def test_e_stress_video_photo_mode_iterations(self):
+        for i in range(NUMBER_OF_TEST_ITERATIONS):
+            timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
+            print("\nINTERATION [", (i + 1), " / ", NUMBER_OF_TEST_ITERATIONS,"], TIME:", timeStr)
+            self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+            time.sleep(OPERATION_WAIT_DURATION)
+            self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+            time.sleep(OPERATION_WAIT_DURATION)
 
     # def test_conti_recording(self):
     #     testVideoRecordingChecking()
