@@ -85,6 +85,7 @@ def updateAllowDevelopmentWithoutDevLicense(value=0):
     subprocess.run(['powershell', 'start-process', 'cmd.exe', f'"/c reg add {DEVELOPER_MODE_REG_KEY} /v {DEVELOPER_MODE_REG_NAME} /t {DEVELOPER_MODE_REG_TYPE} /d {value} /f"', '-verb runas'], check=True, shell=True)
 
 def execWinAppDriver():
+    print(execWinAppDriver)
     subprocess.run(['start', 'WinAppDriver'], shell=True, cwd='C:\Program Files (x86)/Windows Application Driver')
 
 ###############################################################################################################
@@ -745,7 +746,7 @@ class CameraEffectsTests(unittest.TestCase):
             print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
 
         # if (not checkConnection()):
-        #     execWinAppDriver()
+        execWinAppDriver()
 
         timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
         print("start CameraEffectsTests [", timeStr, "]")
@@ -766,35 +767,35 @@ class CameraEffectsTests(unittest.TestCase):
     #     # CameraMode.VIDEO_MODE: to verity MEP effects on videos
     #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
 
-    def test_b_functional_photo_mode(self):
-        # CameraMode.PHOTO_MODE: to verity MEP effects on photos
+    # def test_b_functional_photo_mode(self):
+    #     # CameraMode.PHOTO_MODE: to verity MEP effects on photos
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+
+    def test_c_orientation_combinations(self):
+        screen = rotatescreen.get_primary_display()
+        curOrientation = screen.current_orientation
+        screen.set_landscape()
         self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+        # self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+        screen.set_portrait()
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+        # self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+        screen.set_landscape_flipped()
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+        # self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+        screen.set_portrait_flipped()
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+        # self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+        screen.rotate_to(curOrientation)
 
-    # def test_c_orientation_combinations(self):
-    #     screen = rotatescreen.get_primary_display()
-    #     curOrientation = screen.current_orientation
-    #     screen.set_landscape()
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-    #     screen.set_portrait()
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-    #     screen.set_landscape_flipped()
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-    #     screen.set_portrait_flipped()
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-    #     screen.rotate_to(curOrientation)
-
-    # def test_d_power_combinations(self):
-    #     os.system(r".\\enableDCPowerSimulation.vbs")
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-    #     os.system(r".\\enableACPowerSimulation.vbs")
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-    #     os.system(r".\\disablePowerSimulation.vbs")
+    def test_d_power_combinations(self):
+        os.system(r".\\enableDCPowerSimulation.vbs")
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+        # self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+        os.system(r".\\enableACPowerSimulation.vbs")
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+        # self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+        os.system(r".\\disablePowerSimulation.vbs")
 
     # def test_e_stress_video_photo_mode_iterations(self):
     #     for i in range(NUMBER_OF_TEST_ITERATIONS):
