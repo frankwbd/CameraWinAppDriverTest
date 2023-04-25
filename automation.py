@@ -744,8 +744,8 @@ class CameraEffectsTests(unittest.TestCase):
             time.sleep(1)
             print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
 
-        # if (not checkConnection()):
-        execWinAppDriver()
+        if (not checkConnection()):
+            execWinAppDriver()
 
         timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
         print("start CameraEffectsTests [", timeStr, "]")
@@ -766,31 +766,31 @@ class CameraEffectsTests(unittest.TestCase):
     #     # CameraMode.VIDEO_MODE: to verity MEP effects on videos
     #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
 
-    def test_b_functional_photo_mode(self):
-        # CameraMode.PHOTO_MODE: to verity MEP effects on photos
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    # def test_b_functional_photo_mode(self):
+    #     # CameraMode.PHOTO_MODE: to verity MEP effects on photos
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
 
-    # def test_c_orientation_combinations(self):
-    #     screen = rotatescreen.get_primary_display()
-    #     curOrientation = screen.current_orientation
-    #     print("test landscape")
-    #     screen.set_landscape()
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-    #     print("test portrait")
-    #     screen.set_portrait()
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-    #     print("test landscape_flipped")
-    #     screen.set_landscape_flipped()
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-    #     print("test portrait_flipped")
-    #     screen.set_portrait_flipped()
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-    #     print("revert to", curOrientation)
-    #     screen.rotate_to(curOrientation)
+    def test_c_orientation_combinations(self):
+        screen = rotatescreen.get_primary_display()
+        curOrientation = screen.current_orientation
+        print("test landscape")
+        screen.set_landscape()
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+        # self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+        print("test portrait")
+        screen.set_portrait()
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+        # self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+        print("test landscape_flipped")
+        screen.set_landscape_flipped()
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+        # self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+        print("test portrait_flipped")
+        screen.set_portrait_flipped()
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+        # self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+        print("revert to", curOrientation)
+        screen.rotate_to(curOrientation)
 
     # def test_d_power_combinations(self):
     #     print("simulate 50% DC")
