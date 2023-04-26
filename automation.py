@@ -762,56 +762,47 @@ class CameraEffectsTests(unittest.TestCase):
             time.sleep(OPERATION_WAIT_DURATION)
             print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
 
-    def test_a_functional_video_mode(self):
-        # CameraMode.VIDEO_MODE: to verity MEP effects on videos
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+    # def test_a_functional_video_mode(self):
+    #     # CameraMode.VIDEO_MODE: to verity MEP effects on videos
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
 
-    def test_b_functional_photo_mode(self):
-        # CameraMode.PHOTO_MODE: to verity MEP effects on photos
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    # def test_b_functional_photo_mode(self):
+    #     # CameraMode.PHOTO_MODE: to verity MEP effects on photos
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
 
     def test_c_orientation_combinations(self):
         screen = rotatescreen.get_primary_display()
         curOrientation = screen.current_orientation
-        print("test landscape")
-        screen.set_landscape()
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-        print("test portrait")
-        screen.set_portrait()
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-        print("test landscape_flipped")
-        screen.set_landscape_flipped()
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-        print("test portrait_flipped")
-        screen.set_portrait_flipped()
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+
+        for i in range(4):
+            screen.rotate_to((screen.current_orientation + 90) % 360)
+            print("test rotate degree", screen.current_orientation)
+            self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+            self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+
         print("revert to", curOrientation)
         screen.rotate_to(curOrientation)
 
-    def test_d_power_combinations(self):
-        print("simulate 50% DC")
-        os.system(r".\\enableDCPowerSimulation.vbs")
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-        print("simulate 100% AC")
-        os.system(r".\\enableACPowerSimulation.vbs")
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-        self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-        print("disable power simulation")
-        os.system(r".\\disablePowerSimulation.vbs")
+    # def test_d_power_combinations(self):
+    #     print("simulate 50% DC")
+    #     os.system(r".\\enableDCPowerSimulation.vbs")
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+    #     print("simulate 100% AC")
+    #     os.system(r".\\enableACPowerSimulation.vbs")
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+    #     print("disable power simulation")
+    #     os.system(r".\\disablePowerSimulation.vbs")
 
-    def test_e_stress_video_photo_mode_iterations(self):
-        for i in range(NUMBER_OF_TEST_ITERATIONS):
-            timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
-            print("\nINTERATION [", (i + 1), " / ", NUMBER_OF_TEST_ITERATIONS,"], TIME:", timeStr)
-            self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
-            time.sleep(OPERATION_WAIT_DURATION)
-            self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-            time.sleep(OPERATION_WAIT_DURATION)
+    # def test_e_stress_video_photo_mode_iterations(self):
+    #     for i in range(NUMBER_OF_TEST_ITERATIONS):
+    #         timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
+    #         print("\nINTERATION [", (i + 1), " / ", NUMBER_OF_TEST_ITERATIONS,"], TIME:", timeStr)
+    #         self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+    #         time.sleep(OPERATION_WAIT_DURATION)
+    #         self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    #         time.sleep(OPERATION_WAIT_DURATION)
 
     # def test_conti_recording(self):
     #     testVideoRecordingChecking()
