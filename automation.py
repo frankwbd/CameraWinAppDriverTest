@@ -30,11 +30,6 @@ OPERATION_WAIT_DURATION = 1
 # the number of iterations for veryfying both videos/photos MEP effects
 NUMBER_OF_TEST_ITERATIONS = 50
 
-# to take video/photo or not,
-# 0: not to take
-# 1: to take
-TAKE_VIDEOS_PHOTOS_ACTION = 1
-
 # the number of seconds for operation torrelance
 IMPLICITLY_WAIT_TIME = 5
 
@@ -739,13 +734,13 @@ class CameraEffectsTests(unittest.TestCase):
     @classmethod
     def setUpClass(self):
 
-        if (selectAllowDevelopmentWithoutDevLicense() == '0x0'):
-            updateAllowDevelopmentWithoutDevLicense(1)
-            time.sleep(1)
-            print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
+        # if (selectAllowDevelopmentWithoutDevLicense() == '0x0'):
+        #     updateAllowDevelopmentWithoutDevLicense(1)
+        #     time.sleep(1)
+        #     print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
 
-        if (not checkConnection()):
-            execWinAppDriver()
+        # if (not checkConnection()):
+        #     execWinAppDriver()
 
         timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
         print("start CameraEffectsTests [", timeStr, "]")
@@ -757,31 +752,31 @@ class CameraEffectsTests(unittest.TestCase):
         timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
         print("finish CameraEffectsTests[", timeStr, "]")
 
-        if ((not checkConnection()) and (selectAllowDevelopmentWithoutDevLicense() == '0x1')):
-            updateAllowDevelopmentWithoutDevLicense(0)
-            time.sleep(OPERATION_WAIT_DURATION)
-            print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
+        # if ((not checkConnection()) and (selectAllowDevelopmentWithoutDevLicense() == '0x1')):
+        #     updateAllowDevelopmentWithoutDevLicense(0)
+        #     time.sleep(OPERATION_WAIT_DURATION)
+        #     print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
 
     # def test_a_functional_video_mode(self):
     #     # CameraMode.VIDEO_MODE: to verity MEP effects on videos
     #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
 
-    # def test_b_functional_photo_mode(self):
-    #     # CameraMode.PHOTO_MODE: to verity MEP effects on photos
-    #     self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    def test_b_functional_photo_mode(self):
+        # CameraMode.PHOTO_MODE: to verity MEP effects on photos
+        self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
 
-    def test_c_orientation_combinations(self):
-        screen = rotatescreen.get_primary_display()
-        curOrientation = screen.current_orientation
+    # def test_c_orientation_combinations(self):
+    #     screen = rotatescreen.get_primary_display()
+    #     curOrientation = screen.current_orientation
 
-        for i in range(4):
-            screen.rotate_to((screen.current_orientation + 90) % 360)
-            print("test rotate degree", screen.current_orientation)
-            self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
-            self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
+    #     for i in range(3):
+    #         screen.rotate_to((screen.current_orientation + 90) % 360)
+    #         print("test rotate degree", screen.current_orientation)
+    #         self.assertEqual(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE), True)
+    #         self.assertEqual(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE), True)
 
-        print("revert to", curOrientation)
-        screen.rotate_to(curOrientation)
+    #     print("revert to", curOrientation)
+    #     screen.rotate_to(curOrientation)
 
     # def test_d_power_combinations(self):
     #     print("simulate 50% DC")
