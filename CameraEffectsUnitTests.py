@@ -746,15 +746,19 @@ class CameraEffectsTests(unittest.TestCase):
         print("revert to", curOrientation)
         screen.rotate_to(curOrientation)
 
-    def test_power_combinations(self):
+    def test_power_DC_power_simulation(self):
         print("simulate 50% DC")
         os.system(r".\\enableDCPowerSimulation.vbs")
         self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE))
         self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE))
+
+    def test_power_AC_power_simulation(self):
         print("simulate 100% AC")
         os.system(r".\\enableACPowerSimulation.vbs")
         self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE))
         self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE))
+
+    def test_power_disable_power_simulation(self):
         print("disable power simulation")
         os.system(r".\\disablePowerSimulation.vbs")
 
