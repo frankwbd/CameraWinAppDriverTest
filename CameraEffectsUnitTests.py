@@ -270,6 +270,7 @@ def takeVideosPhotos(WindowsCameraAppDriver, mode : CameraMode) -> bool:
 
     if (mode == CameraMode.VIDEO_MODE):
         takenButtomStr = "Take video"
+        return True
     else:
         takenButtomStr = "Take photo"
 
