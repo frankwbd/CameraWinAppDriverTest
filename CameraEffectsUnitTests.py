@@ -751,12 +751,14 @@ class CameraEffectsTests(unittest.TestCase):
         os.system(r".\\enableDCPowerSimulation.vbs")
         self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE))
         self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE))
+        os.system(r".\\disablePowerSimulation.vbs")
 
     def test_power_AC_power_simulation(self):
         print("simulate 100% AC")
         os.system(r".\\enableACPowerSimulation.vbs")
         self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE))
         self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE))
+        os.system(r".\\disablePowerSimulation.vbs")
 
     def test_power_disable_power_simulation(self):
         print("disable power simulation")
