@@ -34,3 +34,4 @@ SimulatedBatterySystemSystemAction.EnableRealBatteries()
 '  disable the simulated battery
 SimulatedBatterySystemSystemAction.DisableSimulatedBattery()
 
+WScript.Sleep 1000
