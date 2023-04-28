@@ -31,6 +31,6 @@ Set SimulatedBatterySystemSystemAction = WDTF.SystemDepot.ThisSystem.GetInterfac
 SimulatedBatterySystemSystemAction.EnableRealBatteries()
 
 '  disable the simulated battery
-' SimulatedBatterySystemSystemAction.DisableSimulatedBattery()
+SimulatedBatterySystemSystemAction.DisableSimulatedBattery()
 
 WScript.Sleep 1000
