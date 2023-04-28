@@ -762,7 +762,9 @@ class CameraEffectsTests(unittest.TestCase):
 
     def test_power_disable_power_simulation(self):
         print("disable power simulation")
-        os.system(r".\\disablePowerSimulation.vbs")
+        # os.system(r".\\disablePowerSimulation.vbs")
+        vbs_file_path = r".\\disablePowerSimulation.vbs"
+        subprocess.run(["powershell", "-Command", f"Start-Process '{vbs_file_path}' -Verb RunAs"])
 
     def test_stress_video_photo_mode_iterations(self):
         for i in range(NUMBER_OF_TEST_ITERATIONS):
