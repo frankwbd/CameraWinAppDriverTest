@@ -20,18 +20,17 @@ Set WDTF = CreateObject("WDTF2.WDTF")
 Set SimulatedBatterySystemSystemAction = WDTF.SystemDepot.ThisSystem.GetInterface("SimulatedBatterySystem")
 
 
-
 '
 '  clean up
 '
 
 '  set to AC power status
-SimulatedBatterySystemSystemAction.SetSimulatedBatteryToAC()
+' SimulatedBatterySystemSystemAction.SetSimulatedBatteryToAC()
 
 '  enable real batteries
 SimulatedBatterySystemSystemAction.EnableRealBatteries()
 
 '  disable the simulated battery
-SimulatedBatterySystemSystemAction.DisableSimulatedBattery()
+' SimulatedBatterySystemSystemAction.DisableSimulatedBattery()
 
 WScript.Sleep 1000
