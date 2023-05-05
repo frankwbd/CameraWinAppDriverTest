@@ -27,9 +27,6 @@ VIDEO_CAPTURE_DURATION = 30
 # the amount of delay (in second) for each operation
 OPERATION_WAIT_DURATION = 1
 
-# the number of iterations for veryfying both videos/photos MEP effects
-NUMBER_OF_TEST_ITERATIONS = 50
-
 # the number of seconds for operation torrelance
 IMPLICITLY_WAIT_TIME = 5
 
@@ -699,6 +696,9 @@ def monitorFrameServerServiceStatus():
 ###############################################################################################################
 class CameraEffectsTests(unittest.TestCase):
 
+    # # the number of iterations for veryfying both videos/photos MEP effects
+    NUMBER_OF_TEST_ITERATIONS = 100
+
     @classmethod
     def setUpClass(self):
 
@@ -713,6 +713,8 @@ class CameraEffectsTests(unittest.TestCase):
         timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
         print("start CameraEffectsTests [", timeStr, "]")
         removeFilesFromStorage()
+        if "NUMBER_TEST_ITERATIONS" in os.environ:
+            self.NUMBER_OF_TEST_ITERATIONS = os.environ["NUMBER_TEST_ITERATIONS"]
 
     @classmethod
     def tearDownClass(self):
@@ -748,35 +750,23 @@ class CameraEffectsTests(unittest.TestCase):
 
     def test_power_DC_power_simulation(self):
         print("simulate 50% DC")
-        os.system(r".\\enableDCPowerSimulation.vbs")
+        subprocess.Popen(r".\\enableDCPowerSimulation.vbs", shell=True).wait()
         self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE))
         self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE))
-        os.system(r".\\disablePowerSimulation.vbs")
+        subprocess.Popen(r".\\disablePowerSimulation.vbs", shell=True).wait()
 
     def test_power_AC_power_simulation(self):
         print("simulate 100% AC")
-        os.system(r".\\enableACPowerSimulation.vbs")
+        subprocess.Popen(r".\\enableACPowerSimulation.vbs", shell=True).wait()
         self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE))
         self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE))
-        os.system(r".\\disablePowerSimulation.vbs")
-
-    def test_power_disable_power_simulation(self):
-        print("disable power simulation")
-        os.system(r".\\disablePowerSimulation.vbs")
-        # vbs_file_path = ".\disablePowerSimulation.vbs"
-        # subprocess.run(["powershell", "-Command", f"Start-Process '{vbs_file_path}' -Verb RunAs"])
-        # subprocess.run('powershell Start-Process cmd -ArgumentList "/c ".\disablePowerSimulation.vbs" -Verb "runAs"', stdout=subprocess.PIPE, shell=True)
-
-        # # define the powershell command to be executed
-        # ps_command = ".\disablePowerSimulation.vbs"
-
-        # # execute the powershell command as admin using subprocess
-        # process = subprocess.Popen(["powershell.exe", "-Command", "Start-Process powershell -Verb RunAs -ArgumentList '-Command \"{}\"'".format(ps_command)], shell=True, stdout=subprocess.PIPE)
+        subprocess.Popen(r".\\disablePowerSimulation.vbs", shell=True).wait()
 
     def test_stress_video_photo_mode_iterations(self):
-        for i in range(NUMBER_OF_TEST_ITERATIONS):
+        print("STRESS TEST for", self.NUMBER_OF_TEST_ITERATIONS, "runs")
+        for i in range(self.NUMBER_OF_TEST_ITERATIONS):
             timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
-            print("\nINTERATION [", (i + 1), " / ", NUMBER_OF_TEST_ITERATIONS,"], TIME:", timeStr)
+            print("\nINTERATION [", (i + 1), " / ", self.NUMBER_OF_TEST_ITERATIONS,"], TIME:", timeStr)
             self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE))
             time.sleep(OPERATION_WAIT_DURATION)
             self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE))
