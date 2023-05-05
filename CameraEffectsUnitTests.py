@@ -21,9 +21,6 @@ REMOTE_TARGET = "http://" + IP_ADDR + ":" + str(PORT_NUMBER)
 
 CAPTURE_FILE_FOLDER_PATH = "C:\\Users\\" + os.getlogin() + "\\Pictures\\Camera Roll\\*"
 
-# the duration (in second) of video recording
-VIDEO_CAPTURE_DURATION = 30
-
 # the amount of delay (in second) for each operation
 OPERATION_WAIT_DURATION = 1
 
@@ -276,12 +273,13 @@ def takeVideosPhotos(WindowsCameraAppDriver, mode : CameraMode) -> bool:
     except NoSuchElementException:
         print("can not find", takenButtomStr, "button")
         return False
+
     takenButtom.click()
     time.sleep(OPERATION_WAIT_DURATION)
 
     # for video mode, we have to delay VIDEO_CAPTURE_DURATION for recording
     if (mode == CameraMode.VIDEO_MODE):
-        time.sleep(VIDEO_CAPTURE_DURATION)
+        time.sleep(WindowsCameraAppDriver.VIDEO_CAPTURE_DURATION)
         try:
             stopTakingVideoButtom = WindowsCameraAppDriver.find_element_by_name("Stop taking video")
         except NoSuchElementException:
@@ -576,13 +574,15 @@ def removeFilesFromStorage() -> bool:
     [input] VIDEO_MODE or CAMERA_MODE
 '''
 
-def testEffectsOnVariousQualities(mode : CameraMode) -> bool:
+def testEffectsOnVariousQualities(mode : CameraMode, videoCaptureDuration) -> bool:
 
     # trying to open WindowsCamera app
     WindowsCameraAppDriver = launchCameraApp()
     if not WindowsCameraAppDriver:
         print("create WindowsCameraAppDriver fail")
         return False
+
+    WindowsCameraAppDriver.VIDEO_CAPTURE_DURATION = videoCaptureDuration
 
     # Switch to correct mode if necessary
     if (mode == CameraMode.VIDEO_MODE):
@@ -696,8 +696,11 @@ def monitorFrameServerServiceStatus():
 ###############################################################################################################
 class CameraEffectsTests(unittest.TestCase):
 
-    # # the number of iterations for veryfying both videos/photos MEP effects
+    # the number of iterations for veryfying both videos/photos MEP effects
     NUMBER_OF_TEST_ITERATIONS = 100
+
+    # the duration (in second) of video recording
+    VIDEO_CAPTURE_DURATION = 30
 
     @classmethod
     def setUpClass(self):
@@ -713,6 +716,9 @@ class CameraEffectsTests(unittest.TestCase):
         timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
         print("start CameraEffectsTests [", timeStr, "]")
         removeFilesFromStorage()
+
+        if "VIDEO_CAPTURE_DURATION" in os.environ:
+            self.VIDEO_CAPTURE_DURATION = int(os.environ["VIDEO_CAPTURE_DURATION"])
         if "NUMBER_TEST_ITERATIONS" in os.environ:
             self.NUMBER_OF_TEST_ITERATIONS = int(os.environ["NUMBER_TEST_ITERATIONS"])
 
@@ -729,18 +735,18 @@ class CameraEffectsTests(unittest.TestCase):
 
 
     def run_photo_video_test(self):
-        self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE))
+        self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE, 0))
         time.sleep(OPERATION_WAIT_DURATION)
-        self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE))
+        self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE, self.VIDEO_CAPTURE_DURATION))
         time.sleep(OPERATION_WAIT_DURATION)
 
     def test_functional_video_mode(self):
         # CameraMode.VIDEO_MODE: to verity MEP effects on videos
-        self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE))
+        self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE, self.VIDEO_CAPTURE_DURATION))
 
     def test_functional_photo_mode(self):
         # CameraMode.PHOTO_MODE: to verity MEP effects on photos
-        self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE))
+        self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE, 0))
 
     def test_orientation_combinations(self):
         screen = rotatescreen.get_primary_display()
