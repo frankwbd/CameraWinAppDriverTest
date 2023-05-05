@@ -714,7 +714,7 @@ class CameraEffectsTests(unittest.TestCase):
         print("start CameraEffectsTests [", timeStr, "]")
         removeFilesFromStorage()
         if "NUMBER_TEST_ITERATIONS" in os.environ:
-            self.NUMBER_OF_TEST_ITERATIONS = os.environ["NUMBER_TEST_ITERATIONS"]
+            self.NUMBER_OF_TEST_ITERATIONS = int(os.environ["NUMBER_TEST_ITERATIONS"])
 
     @classmethod
     def tearDownClass(self):
@@ -726,6 +726,13 @@ class CameraEffectsTests(unittest.TestCase):
         #     updateAllowDevelopmentWithoutDevLicense(0)
         #     time.sleep(OPERATION_WAIT_DURATION)
         #     print(f'updateAllowDevelopmentWithoutDevLicense:{selectAllowDevelopmentWithoutDevLicense()}')
+
+
+    def run_photo_video_test(self):
+        self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE))
+        time.sleep(OPERATION_WAIT_DURATION)
+        self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE))
+        time.sleep(OPERATION_WAIT_DURATION)
 
     def test_functional_video_mode(self):
         # CameraMode.VIDEO_MODE: to verity MEP effects on videos
@@ -742,8 +749,7 @@ class CameraEffectsTests(unittest.TestCase):
         for i in range(3):
             screen.rotate_to((screen.current_orientation + 90) % 360)
             print("test rotate degree", screen.current_orientation)
-            self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE))
-            self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE))
+            self.run_photo_video_test()
 
         print("revert to", curOrientation)
         screen.rotate_to(curOrientation)
@@ -751,15 +757,13 @@ class CameraEffectsTests(unittest.TestCase):
     def test_power_DC_power_simulation(self):
         print("simulate 50% DC")
         subprocess.Popen(r".\\enableDCPowerSimulation.vbs", shell=True).wait()
-        self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE))
-        self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE))
+        self.run_photo_video_test()
         subprocess.Popen(r".\\disablePowerSimulation.vbs", shell=True).wait()
 
     def test_power_AC_power_simulation(self):
         print("simulate 100% AC")
         subprocess.Popen(r".\\enableACPowerSimulation.vbs", shell=True).wait()
-        self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE))
-        self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE))
+        self.run_photo_video_test()
         subprocess.Popen(r".\\disablePowerSimulation.vbs", shell=True).wait()
 
     def test_stress_video_photo_mode_iterations(self):
@@ -767,10 +771,7 @@ class CameraEffectsTests(unittest.TestCase):
         for i in range(self.NUMBER_OF_TEST_ITERATIONS):
             timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
             print("\nINTERATION [", (i + 1), " / ", self.NUMBER_OF_TEST_ITERATIONS,"], TIME:", timeStr)
-            self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE))
-            time.sleep(OPERATION_WAIT_DURATION)
-            self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE))
-            time.sleep(OPERATION_WAIT_DURATION)
+            self.run_photo_video_test()
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(CameraEffectsTests)
