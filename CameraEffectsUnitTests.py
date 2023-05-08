@@ -761,15 +761,15 @@ class CameraEffectsTests(unittest.TestCase):
 
     def test_power_DC_power_simulation(self):
         print("simulate 50% DC")
-        subprocess.Popen(r".\\enableDCPowerSimulation.vbs", shell=True).wait()
+        subprocess.Popen(r".\\vbs\\enableDCPowerSimulation.vbs", shell=True).wait()
         self.run_photo_video_test()
-        subprocess.Popen(r".\\disablePowerSimulation.vbs", shell=True).wait()
+        subprocess.Popen(r".\\vbs\\disablePowerSimulation.vbs", shell=True).wait()
 
     def test_power_AC_power_simulation(self):
         print("simulate 100% AC")
-        subprocess.Popen(r".\\enableACPowerSimulation.vbs", shell=True).wait()
+        subprocess.Popen(r".\\vbs\\enableACPowerSimulation.vbs", shell=True).wait()
         self.run_photo_video_test()
-        subprocess.Popen(r".\\disablePowerSimulation.vbs", shell=True).wait()
+        subprocess.Popen(r".\\vbs\\disablePowerSimulation.vbs", shell=True).wait()
 
     def test_stress_video_photo_mode_iterations(self):
         print("STRESS TEST for", self.NUMBER_OF_TEST_ITERATIONS, "runs")
