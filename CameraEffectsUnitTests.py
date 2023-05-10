@@ -264,6 +264,8 @@ def takeVideosPhotos(WindowsCameraAppDriver, mode : CameraMode) -> bool:
 
     if (mode == CameraMode.VIDEO_MODE):
         takenButtomStr = "Take video"
+        if (not WindowsCameraAppDriver.VIDEO_TAKING_CLIPS):
+            return True
     else:
         takenButtomStr = "Take photo"
 
@@ -571,9 +573,14 @@ def removeFilesFromStorage() -> bool:
     5. close Camera app
 
     [input] VIDEO_MODE or CAMERA_MODE
+    [input] takeVideoClips to control whether taking video clips
+            - 1 : to take video clips
+            - 0 : not to take clips
+    [input] videoCaptureDuration
+            - the vidoe duraiton if to take video clip
 '''
 
-def testEffectsOnVariousQualities(mode : CameraMode, videoCaptureDuration) -> bool:
+def testEffectsOnVariousQualities(mode : CameraMode, takeVideoClips, videoCaptureDuration) -> bool:
 
     # trying to open WindowsCamera app
     WindowsCameraAppDriver = launchCameraApp()
@@ -581,6 +588,7 @@ def testEffectsOnVariousQualities(mode : CameraMode, videoCaptureDuration) -> bo
         print("create WindowsCameraAppDriver fail")
         return False
 
+    WindowsCameraAppDriver.VIDEO_TAKING_CLIPS = takeVideoClips
     WindowsCameraAppDriver.VIDEO_CAPTURE_DURATION = videoCaptureDuration
 
     # Switch to correct mode if necessary
@@ -701,6 +709,9 @@ class CameraEffectsTests(unittest.TestCase):
     # the duration (in second) of video recording
     VIDEO_CAPTURE_DURATION = 30
 
+    # contorl taking video (to speed-up whole process)
+    VIDEO_TAKING_CLIPS = 1
+
     @classmethod
     def setUpClass(self):
 
@@ -720,6 +731,8 @@ class CameraEffectsTests(unittest.TestCase):
             self.VIDEO_CAPTURE_DURATION = int(os.environ["VIDEO_CAPTURE_DURATION"])
         if "NUMBER_TEST_ITERATIONS" in os.environ:
             self.NUMBER_OF_TEST_ITERATIONS = int(os.environ["NUMBER_TEST_ITERATIONS"])
+        if "VIDEO_TAKING_CLIPS" in os.environ:
+            self.VIDEO_TAKING_CLIPS = int(os.environ["VIDEO_TAKING_CLIPS"])
 
     @classmethod
     def tearDownClass(self):
@@ -734,18 +747,18 @@ class CameraEffectsTests(unittest.TestCase):
 
 
     def run_photo_video_test(self):
-        self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE, 0))
+        self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE, 0, 0))
         time.sleep(OPERATION_WAIT_DURATION)
-        self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE, self.VIDEO_CAPTURE_DURATION))
+        self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE, self.VIDEO_TAKING_CLIPS, self.VIDEO_CAPTURE_DURATION))
         time.sleep(OPERATION_WAIT_DURATION)
 
     def test_functional_video_mode(self):
         # CameraMode.VIDEO_MODE: to verity MEP effects on videos
-        self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE, self.VIDEO_CAPTURE_DURATION))
+        self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE, self.VIDEO_TAKING_CLIPS, self.VIDEO_CAPTURE_DURATION))
 
     def test_functional_photo_mode(self):
         # CameraMode.PHOTO_MODE: to verity MEP effects on photos
-        self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE, 0))
+        self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE, 0, 0))
 
     def test_orientation_combinations(self):
         screen = rotatescreen.get_primary_display()
