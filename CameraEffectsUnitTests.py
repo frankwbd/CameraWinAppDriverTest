@@ -7,19 +7,26 @@ import subprocess
 import unittest
 import itertools
 import rotatescreen
+import psutil
+import re
+import xlsxwriter
+import shutil
 from appium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from enum import Enum
 from datetime import datetime
+from videoprops import get_video_properties
 
 ###############################################################################################################
 
 # Here is to define constant values
 IP_ADDR = "127.0.0.1"
 PORT_NUMBER = 4723
-REMOTE_TARGET = "http://" + IP_ADDR + ":" + str(PORT_NUMBER)
+REMOTE_TARGET = f"http://{IP_ADDR}:{PORT_NUMBER}"
 
 CAPTURE_FILE_FOLDER_PATH = "C:\\Users\\" + os.getlogin() + "\\Pictures\\Camera Roll\\*"
+CAPTURE_FILE_VIDEO_TYPES = "C:\\Users\\" + os.getlogin() + "\\Pictures\\Camera Roll\\*.mp4"
+CAPTURE_FILE_PHOTO_TYPES = "C:\\Users\\" + os.getlogin() + "\\Pictures\\Camera Roll\\*.jpg"
 
 # the amount of delay (in second) for each operation
 OPERATION_WAIT_DURATION = 1
@@ -30,6 +37,13 @@ IMPLICITLY_WAIT_TIME = 5
 class CameraMode(Enum):
     VIDEO_MODE = 0
     PHOTO_MODE = 1
+
+class ExcelFileIfo():
+    outputExcelFp = any
+    outputExcelCurWorkSheet = any
+    outputExcelRowIdx = 0
+    noticeFormat = any
+    targetFolderPath = any
 
 MEP_EFFECTS = [
     # "Automatic framing - The camera will keep you in frame and in focus for photos and videos",
@@ -50,6 +64,50 @@ FLICKER_REDUCTION = [
     "60 Hz",
 ]
 
+VIDEO_MODE_QUALITY_LIST = [
+    "1080p, 16 by 9 aspect ratio, 30 fps",
+    "720p, 16 by 9 aspect ratio, 30 fps",
+    "360p, 16 by 9 aspect ratio, 30 fps",
+    "1440p, 4 by 3 aspect ratio, 30 fps",
+    "480p, 4 by 3 aspect ratio, 30 fps",
+    "640p, 1 by 1 aspect ratio, 30 fps",
+]
+
+PHOTO_MODE_QUALITY_LIST = [
+    "2.1 megapixels, 16 by 9 aspect ratio,  1920 by 1080 resolution",
+    "0.9 megapixels, 16 by 9 aspect ratio,  1280 by 720 resolution",
+    "0.2 megapixels, 16 by 9 aspect ratio,  640 by 360 resolution",
+    "2.8 megapixels, 4 by 3 aspect ratio,  1920 by 1440 resolution",
+    "0.3 megapixels, 4 by 3 aspect ratio,  640 by 480 resolution",
+    "0.4 megapixels, 1 by 1 aspect ratio,  640 by 640 resolution",
+]
+
+CAMERA_EFFECTS_SCENARIO_LIST = [
+    ["On","Off","Off","AF","65536"],                     #(AF)        -scenarioID:65536
+    ["Off","On","Off","EC","16"],                        #(EC)        -scenarioID:16
+    ["Off","Off","On","BBS","96","True","False"],        #(BBS)       -scenarioID:96
+    ["Off","Off","On","BBP","16416","False","True"],     #(BBP)       -scenarioID:16416
+    ["On","On","Off","AF+EC","65552"],                   #(AF+EC)     -ScenarioID:65552
+    ["On","Off","On","AF+BBS","65632","True","False"],   #(AF+BBS)    -scenarioID:65632
+    ["On","Off","On","AF+BBP","81952","False","True"],   #(AF+BBP)    -scenarioID:81952
+    ["Off","On","On","EC+BBS","112","True","False"],     #(EC+BBS)    -scenarioID:112
+    ["Off","On","On","EC+BBP","16432","False","True"],   #(EC+BBP)    -scenarioID:16432
+    ["On","On","On","AF+EC+BBS","65648","True","False"], #(AF+EC+BBS) -scenarioID:65648
+    ["On","On","On","AF+EC+BBP","81968","False","True"], #(AF+EC+BBP) -scenarioID:81968
+]
+
+DEVICE_ORIENTATION = [
+    "landscape",
+    "portrait",
+    "landscape_flipped",
+    "portrait_flipped",
+]
+
+POWER_SIMULATION_STATUS = [
+    "DC_50%",
+    "AC_100%",
+]
+
 # the max height can apply MEP effects
 MAXIMUM_MEP_RESOLUTION_HEIGHT = 1440
 
@@ -59,6 +117,7 @@ MINIMUM_MEP_RESOLUTION_HEIGHT = 360
 DEVELOPER_MODE_REG_KEY = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
 DEVELOPER_MODE_REG_NAME = "AllowDevelopmentWithoutDevLicense"
 DEVELOPER_MODE_REG_TYPE = "REG_DWORD"
+
 
 def checkConnection(host=IP_ADDR, port=PORT_NUMBER) -> bool:
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -118,6 +177,31 @@ def closeCameraApp(WindowsCameraAppDriver):
     # Quit the Windows Application Driver
     WindowsCameraAppDriver.quit()
 
+
+def launchSettingApp():
+
+    # Set desired capabilities to launch the Camera app
+    desired_caps = {
+        "app": "windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft.windows.immersivecontrolpanel",
+        "platformName": "Windows",
+    }
+    # Start the Windows Application Driver
+    WindowsSettingAppDriver = webdriver.Remote(
+        command_executor = REMOTE_TARGET,
+        desired_capabilities = desired_caps)
+    WindowsSettingAppDriver.implicitly_wait(IMPLICITLY_WAIT_TIME)
+    return WindowsSettingAppDriver
+
+def closeSettingApp(WindowsSettingAppDriver):
+
+    # Close the Camera app
+    CloseCameraButton = WindowsSettingAppDriver.find_element_by_name("Close Settings")
+    CloseCameraButton.click()
+    time.sleep(OPERATION_WAIT_DURATION)
+
+    # Quit the Windows Application Driver
+    WindowsSettingAppDriver.quit()
+
 ###############################################################################################################
 
 ###############################################################################################################
@@ -139,7 +223,7 @@ def closeCameraApp(WindowsCameraAppDriver):
 
 def switchCameraCheckMEPPackageExist(WindowsCameraAppDriver) -> bool:
     try:
-        MEPEffects = WindowsCameraAppDriver.find_element_by_name("Windows Studio effects")
+        MEPEffects = WindowsCameraAppDriver.find_element_by_name("Windows Studio Effects")
     except NoSuchElementException:
         try:
             changeCameraButton = WindowsCameraAppDriver.find_element_by_accessibility_id("SwitchCameraButtonId")
@@ -152,7 +236,7 @@ def switchCameraCheckMEPPackageExist(WindowsCameraAppDriver) -> bool:
         changeCameraButton.click()
         time.sleep(OPERATION_WAIT_DURATION)
         try:
-            MEPEffects = WindowsCameraAppDriver.find_element_by_name("Windows Studio effects")
+            MEPEffects = WindowsCameraAppDriver.find_element_by_name("Windows Studio Effects")
         except NoSuchElementException:
             print("No MEP packages installed in this device, please check!!")
             closeCameraApp(WindowsCameraAppDriver)
@@ -239,7 +323,7 @@ def closeCameraEffectToggleButtonWithTakingAction(WindowsCameraAppDriver, mode :
         return False
 
     try:
-        CameraEffectToggleButton = WindowsCameraAppDriver.find_element_by_name("Windows Studio effects")
+        CameraEffectToggleButton = WindowsCameraAppDriver.find_element_by_name("Windows Studio Effects")
     except NoSuchElementException:
         print("can not find Windows Studio effects option")
         return False
@@ -264,20 +348,18 @@ def takeVideosPhotos(WindowsCameraAppDriver, mode : CameraMode) -> bool:
 
     if (mode == CameraMode.VIDEO_MODE):
         takenButtomStr = "Take video"
-        if (not WindowsCameraAppDriver.VIDEO_TAKING_CLIPS):
-            return True
     else:
         takenButtomStr = "Take photo"
 
+    time.sleep(OPERATION_WAIT_DURATION)
     try:
         takenButtom = WindowsCameraAppDriver.find_element_by_name(takenButtomStr)
     except NoSuchElementException:
         print("can not find", takenButtomStr, "button")
         return False
-
-    takenButtom.click()
     time.sleep(OPERATION_WAIT_DURATION)
 
+    takenButtom.click()
     # for video mode, we have to delay VIDEO_CAPTURE_DURATION for recording
     if (mode == CameraMode.VIDEO_MODE):
         time.sleep(WindowsCameraAppDriver.VIDEO_CAPTURE_DURATION)
@@ -285,7 +367,7 @@ def takeVideosPhotos(WindowsCameraAppDriver, mode : CameraMode) -> bool:
             stopTakingVideoButtom = WindowsCameraAppDriver.find_element_by_name("Stop taking video")
         except NoSuchElementException:
             print("no Stop taking video button")
-            return False
+            return True
         stopTakingVideoButtom.click()
     time.sleep(OPERATION_WAIT_DURATION)
 
@@ -372,7 +454,7 @@ def clearAllEffects(WindowsCameraAppDriver) -> bool:
 def testEachCameraEffect(WindowsCameraAppDriver, mode : CameraMode) -> bool:
 
     # To open CameraEffect windows
-    CameraEffectToggleButton = WindowsCameraAppDriver.find_element_by_name("Windows Studio effects")
+    CameraEffectToggleButton = WindowsCameraAppDriver.find_element_by_name("Windows Studio Effects")
     time.sleep(OPERATION_WAIT_DURATION)
     CameraEffectToggleButton.click()
 
@@ -446,7 +528,7 @@ def testEachCameraEffect(WindowsCameraAppDriver, mode : CameraMode) -> bool:
 def testEachCameraEffectCombinations(WindowsCameraAppDriver, mode : CameraMode) -> bool:
 
     # To open CameraEffect windows
-    CameraEffectToggleButton = WindowsCameraAppDriver.find_element_by_name("Windows Studio effects")
+    CameraEffectToggleButton = WindowsCameraAppDriver.find_element_by_name("Windows Studio Effects")
     time.sleep(OPERATION_WAIT_DURATION)
     CameraEffectToggleButton.click()
 
@@ -458,8 +540,7 @@ def testEachCameraEffectCombinations(WindowsCameraAppDriver, mode : CameraMode) 
     # generate all combinations for MEP effects
     ToggleButtonCombinations = []
     for r in range(len(MEP_EFFECTS)+1):
-        for combination in itertools.combinations(MEP_EFFECTS, r):
-            ToggleButtonCombinations.append(combination)
+        ToggleButtonCombinations.extend(iter(itertools.combinations(MEP_EFFECTS, r)))
 
     # to test all combinations for MEP effects
     for tuple in ToggleButtonCombinations:
@@ -529,7 +610,7 @@ def retrieveQualityList(WindowsCameraAppDriver, mode : CameraMode, qualityListsI
         if (mode == CameraMode.VIDEO_MODE):
             # 1080p, 16 by 9 aspect ratio, 30 fps
             pos = item.text.find("p")
-            height = int(item.text[0:pos])
+            height = int(item.text[:pos])
         else:
             # 2.1 megapixels, 16 by 9 aspect ratio,  1920 by 1080 resolution
             pos = item.text.find(",  ")
@@ -555,7 +636,7 @@ def removeFilesFromStorage() -> bool:
     for f in files:
         try:
             os.remove(f)
-        except:
+        except Exception:
             print("Error while deleting file ", f)
             return False
     return True
@@ -580,7 +661,10 @@ def removeFilesFromStorage() -> bool:
             - the vidoe duraiton if to take video clip
 '''
 
-def testEffectsOnVariousQualities(mode : CameraMode, takeVideoClips, videoCaptureDuration) -> bool:
+def testEffectsOnVariousQualities(mode : CameraMode, videoCaptureDuration) -> bool:
+
+    # open AsgLogTrace to record log
+    sp = subprocess.Popen('cmd.exe /c collect.cmd', stdin=subprocess.PIPE, cwd='.\\AsgTraceLog')
 
     # trying to open WindowsCamera app
     WindowsCameraAppDriver = launchCameraApp()
@@ -588,7 +672,6 @@ def testEffectsOnVariousQualities(mode : CameraMode, takeVideoClips, videoCaptur
         print("create WindowsCameraAppDriver fail")
         return False
 
-    WindowsCameraAppDriver.VIDEO_TAKING_CLIPS = takeVideoClips
     WindowsCameraAppDriver.VIDEO_CAPTURE_DURATION = videoCaptureDuration
 
     # Switch to correct mode if necessary
@@ -655,7 +738,7 @@ def testEffectsOnVariousQualities(mode : CameraMode, takeVideoClips, videoCaptur
 
         # return fail if no "Windows Studio effects" button found
         try:
-            WindowsCameraAppDriver.find_element_by_name("Windows Studio effects")
+            WindowsCameraAppDriver.find_element_by_name("Windows Studio Effects")
         except NoSuchElementException:
             print("no MEP effect button for resolution:", qualityLists[idx])
             return False
@@ -681,22 +764,383 @@ def testEffectsOnVariousQualities(mode : CameraMode, takeVideoClips, videoCaptur
 
     closeCameraApp(WindowsCameraAppDriver)
     removeFilesFromStorage()
+
+    # terminate AsgTraceLog
+    sp.communicate(input=b'\n')
+    sp.terminate()
     return True
 
+
 ###############################################################################################################
 
 ###############################################################################################################
 
 '''
-    monitorFrameServerServiceStatus is to show current status of both  frameserver/frameservermonitor service
+    testEffectsOnVariousQualities is to test MEP effects:
+    1. launch Camera app
+    2. switch to VIDEOS/PHOTOS mode depends on the input parameter
+    3. open setting page to toggle desired testing quality (rosulutions)
+    4. laucn testEachCameraEffectCombinations
+    5. close Camera app
+
+    [input] VIDEO_MODE or CAMERA_MODE
+    [input] takeVideoClips to control whether taking video clips
+            - 1 : to take video clips
+            - 0 : not to take clips
+    [input] videoCaptureDuration
+            - the vidoe duraiton if to take video clip
 '''
 
-def monitorFrameServerServiceStatus():
-    print("frameserver status: ")
-    os.system('sc query frameserver | find /c "RUNNING"')
-    print("frameservermonitor status: ")
-    os.system('sc query frameservermonitor | find /c "RUNNING"')
+def startAsgTracing():
 
+    waitFrameServerServiceStopped()
+
+    # open AsgLogTrace to record log
+    sp = subprocess.Popen('cmd.exe /c collect.cmd', stdin=subprocess.PIPE, cwd='.\\AsgTraceLog')
+    time.sleep(OPERATION_WAIT_DURATION)
+    return sp
+
+def stopAsgTracing(sp):
+
+    waitFrameServerServiceStopped()
+
+    # terminate AsgTraceLog
+    sp.communicate(input=b'\n')
+    sp.terminate()
+
+    time.sleep(5)
+
+def forceCameraUseSystemSettings(mode : CameraMode, videoQuality) -> bool:
+
+    WindowsCameraAppDriver = launchCameraApp()
+
+    # Switch to correct mode if necessary
+    if (mode == CameraMode.VIDEO_MODE):
+        switchToVideoMode(WindowsCameraAppDriver)
+    else:
+        switchToPhotoMode(WindowsCameraAppDriver)
+
+    # Open settings menu
+    try:
+        settingsButton = WindowsCameraAppDriver.find_element_by_name("Open Settings Menu")
+    except NoSuchElementException:
+        print("no Open Settings Menu button")
+        return False
+    settingsButton.click()
+
+    try:
+        cameraSettingsButton = WindowsCameraAppDriver.find_element_by_name("Camera settings")
+    except NoSuchElementException:
+        print("no Camera settings option")
+        return False
+    cameraSettingsButton.click()
+    time.sleep(OPERATION_WAIT_DURATION)
+
+    try:
+        defaultSettingButton = WindowsCameraAppDriver.find_element_by_name("Default settings - These settings apply to the Camera app at the start of each session")
+    except NoSuchElementException:
+        print("no Default settings option")
+        return False
+    defaultSettingButton.click()
+    time.sleep(OPERATION_WAIT_DURATION)
+
+    try:
+        useSystemSettingsButton = WindowsCameraAppDriver.find_element_by_name("Use system settings")
+    except NoSuchElementException:
+        print("no Use system settings option")
+        return False
+    useSystemSettingsButton.click()
+    time.sleep(OPERATION_WAIT_DURATION)
+
+    # switch quality settings and click
+    if (mode == CameraMode.VIDEO_MODE):
+        settingStr = "Videos settings"
+    else:
+        settingStr = "Photos settings"
+
+    try:
+        qualitySettingsButton = WindowsCameraAppDriver.find_element_by_name(settingStr)
+    except NoSuchElementException:
+        print("no", settingStr, "option")
+        return False
+    qualitySettingsButton.click()
+    time.sleep(OPERATION_WAIT_DURATION)
+
+    try:
+        ComboBoxLists = WindowsCameraAppDriver.find_elements_by_class_name("ComboBox")
+    except NoSuchElementException:
+        print("no ComboBox option for qualities")
+        return False
+
+    for qualityButton in ComboBoxLists:
+        if (qualityButton.text in VIDEO_MODE_QUALITY_LIST):
+            qualityButton.click()
+            time.sleep(OPERATION_WAIT_DURATION)
+
+    # query quality options
+    qualityComboBoxItems = WindowsCameraAppDriver.find_elements_by_class_name("ComboBoxItem")
+    bFoundTargetQuality = False
+
+    for item in qualityComboBoxItems:
+        if (item.text == videoQuality):
+            item.click()
+            bFoundTargetQuality = True
+            break
+
+    if not bFoundTargetQuality:
+        print(videoQuality, "not supported")
+        closeCameraApp(WindowsCameraAppDriver)
+        return False
+
+    closeCameraApp(WindowsCameraAppDriver)
+    return True
+
+def toggleDesiredEffectInSettingsApp(cameraScenario) -> bool:
+
+    WindowsSettingAppDriver = launchSettingApp()
+
+    if not WindowsSettingAppDriver:
+        print("can not launch WindowsSetting App")
+        return False
+
+    try:
+        btDevicesButton = WindowsSettingAppDriver.find_element_by_name("Bluetooth & devices")
+    except NoSuchElementException:
+        print("no Bluetooth & devices option")
+        return False
+    btDevicesButton.click()
+    time.sleep(OPERATION_WAIT_DURATION)
+
+    try:
+        cCameraButton = WindowsSettingAppDriver.find_element_by_name("Connected cameras, default image settings")
+    except NoSuchElementException:
+        print("no Bluetooth & devices option")
+        return False
+    cCameraButton.click()
+    time.sleep(OPERATION_WAIT_DURATION)
+
+    try:
+        cameraFrontButton = WindowsSettingAppDriver.find_element_by_name("More")
+    except NoSuchElementException:
+        print("no Bluetooth & devices option")
+        return False
+    cameraFrontButton.click()
+    time.sleep(OPERATION_WAIT_DURATION)
+
+    toggleSwitchButtons = WindowsSettingAppDriver.find_elements_by_class_name("ToggleSwitch")
+    for button in toggleSwitchButtons:
+        if button.text == "Automatic framing":
+            autoFramingButton = button
+        elif button.text == "Eye contact":
+            eyeContactButton = button
+        elif button.text == "Background effects":
+            backgroundEffectButton = button
+
+    radioButtons = WindowsSettingAppDriver.find_elements_by_class_name("RadioButton")
+    for button in radioButtons:
+        if button.text == "Standard blur":
+            standardBlurButton = button
+        if button.text == "Portrait blur":
+            portraitBlurButton = button
+
+    # for AF
+    if autoFramingButton:
+        if (((cameraScenario[0] == "On") and (not autoFramingButton.is_selected())) or
+            ((cameraScenario[0] == "Off") and (autoFramingButton.is_selected()))):
+            autoFramingButton.click()
+            time.sleep(OPERATION_WAIT_DURATION)
+
+    # for EC
+    if eyeContactButton:
+        if (((cameraScenario[1] == "On") and (not eyeContactButton.is_selected())) or
+            ((cameraScenario[1] == "Off") and (eyeContactButton.is_selected()))):
+            eyeContactButton.click()
+            time.sleep(OPERATION_WAIT_DURATION)
+
+    # for BBS/BBP
+    if backgroundEffectButton:
+        if (((cameraScenario[2] == "On") and (not backgroundEffectButton.is_selected())) or
+            ((cameraScenario[2] == "Off") and (backgroundEffectButton.is_selected()))):
+            backgroundEffectButton.click()
+            time.sleep(OPERATION_WAIT_DURATION)
+
+        if backgroundEffectButton.is_selected():
+            if cameraScenario[5] == "True":
+                standardBlurButton.click()
+            else:
+                portraitBlurButton.click()
+            time.sleep(OPERATION_WAIT_DURATION)
+
+    closeSettingApp(WindowsSettingAppDriver)
+
+    return True
+
+def writeResultsToExcelFile(excelFileInfo: ExcelFileIfo, quality, scenario, fps, avgP, minP, maxP, numOfFrameAbove33):
+
+    excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 0, quality)
+    excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 1, scenario)
+    if fps < 29 or fps == -1:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 2, fps, excelFileInfo.noticeFormat)
+    else:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 2, fps)
+    if avgP > 33 or avgP == -1:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 3, avgP, excelFileInfo.noticeFormat)
+    else:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 3, avgP)
+    if minP == -1:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 4, minP, excelFileInfo.noticeFormat)
+    else:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 4, minP)
+    if maxP == -1:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 5, maxP, excelFileInfo.noticeFormat)
+    else:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 5, maxP)
+    if numOfFrameAbove33 > 0 or numOfFrameAbove33 == -1:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 6, numOfFrameAbove33, excelFileInfo.noticeFormat)
+    else:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 6, numOfFrameAbove33)
+
+def outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo: ExcelFileIfo):
+
+    pos = videoQuality.find(", ")
+    targetFolderPathWithQuality = f"{excelFileInfo.targetFolderPath}\{videoQuality[:pos]}"
+    if not os.path.isdir(targetFolderPathWithQuality):
+        os.makedirs(targetFolderPathWithQuality)
+    scenarioLogPath = f"{targetFolderPathWithQuality}\{cameraScenario[3]}"
+    if not os.path.isdir(scenarioLogPath):
+        os.makedirs(scenarioLogPath)
+
+    # fetch frame rate from video clip
+    files = glob.glob(CAPTURE_FILE_VIDEO_TYPES)
+    try:
+        props = get_video_properties(files[0])
+        shutil.copy2(files[0], scenarioLogPath)
+
+        frameRateStr = props['avg_frame_rate']
+        pos = frameRateStr.find("/")
+        denominator = int(frameRateStr[pos+1:])
+        numerator = int(frameRateStr[:pos])
+        avgFPS = round(numerator/denominator, 2)
+    except Exception:
+        print("video clip broken")
+        avgFPS = -1
+
+    cameraScenarioId = cameraScenario[4]
+
+    regExp = fr"(.)+::PerceptionSessionUsageStats,(.)+PerceptionCore-(.)+{cameraScenarioId}"
+    perfStr = ""
+    shutil.copy2(r".\\AsgTraceLog\\AsgTrace.txt", scenarioLogPath)
+    with open(r".\\AsgTraceLog\\AsgTrace.txt", 'r') as fp:
+        for line in fp:
+            # search string
+            if re.search(regExp, line):
+                perfStr = line
+                break
+
+    pos = videoQuality.find(", ")
+    if not perfStr:
+        minProcessingTimePerFrame = -1
+        avgProcessingTimePerFrame = -1
+        maxProcessingTimePerFrame = -1
+        numberOfFramesAbove33ms = -1
+        print(
+        videoQuality[:pos],
+        cameraScenario[3],
+        "test fail, ASG trace log error\n")
+    else:
+        tokens = perfStr.split(", ")
+        minProcessingTimePerFrame = round(int(tokens[12]) / 1000000, 2)  # minProcessingTimePerFrame
+        avgProcessingTimePerFrame = round(int(tokens[11]) / 1000000, 2)  # avgProcessingTimePerFrame
+        maxProcessingTimePerFrame = round(int(tokens[13]) / 1000000, 2)  # maxProcessingTimePerFrame
+        numberOfFramesAbove33ms = int(tokens[20])  #numberOfFramesAbove33ms
+
+    excelFileInfo.outputExcelRowIdx += 1
+    # print(
+    #     videoQuality[:pos],
+    #     cameraScenario[3],
+    #     "result:\n" "FPS:",
+    #     avgFPS,
+    #     ",",
+    #     "processTimePerFrame[avg, min, max]: [",
+    #     avgProcessingTimePerFrame,
+    #     "ms,",
+    #     minProcessingTimePerFrame,
+    #     "ms,",
+    #     maxProcessingTimePerFrame,
+    #     "ms ]",
+    #     "numberOfFramesAbove33ms:",
+    #     numberOfFramesAbove33ms,
+    # )
+    writeResultsToExcelFile(
+        excelFileInfo,
+        videoQuality[:pos],
+        cameraScenario[3],
+        avgFPS,
+        avgProcessingTimePerFrame,
+        minProcessingTimePerFrame,
+        maxProcessingTimePerFrame,
+        numberOfFramesAbove33ms,
+    )
+
+def  cameraRecordingAction(mode : CameraMode, videoQuality, cameraScenario, videoCaptureDuration, excelFileInfo: ExcelFileIfo) -> bool:
+
+    sp = startAsgTracing()
+
+    # trying to open WindowsCamera app
+    WindowsCameraAppDriver = launchCameraApp()
+    if not WindowsCameraAppDriver:
+        print("create WindowsCameraAppDriver fail")
+        return False
+
+    WindowsCameraAppDriver.VIDEO_CAPTURE_DURATION = videoCaptureDuration
+
+    # taking video...
+    retCode = takeVideosPhotos(WindowsCameraAppDriver, mode)
+    if not retCode:
+        print("takeVideosPhotos")
+
+    closeCameraApp(WindowsCameraAppDriver)
+    stopAsgTracing(sp)
+
+    outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo)
+
+    removeFilesFromStorage()
+
+    return retCode
+
+def testPerformanceForQualityScenario(mode : CameraMode, videoQuality, cameraScenario, videoCaptureDuration, excelFileInfo: ExcelFileIfo) -> bool:
+
+    if not toggleDesiredEffectInSettingsApp(cameraScenario):
+        return False
+
+    return cameraRecordingAction(mode, videoQuality, cameraScenario, videoCaptureDuration, excelFileInfo)
+
+
+###############################################################################################################
+
+###############################################################################################################
+
+'''
+    waitFrameServerServiceStopped is to wait until frame server status switch to stop
+'''
+def getService(name):
+
+    service = None
+    try:
+        service = psutil.win_service_get(name)
+        service = service.as_dict()
+    except Exception as ex:
+        print(ex)
+    return service
+
+def waitFrameServerServiceStopped():
+
+    while True:
+        service = getService('frameserver')
+        if (service['status'] != "stopped"):
+            time.sleep(OPERATION_WAIT_DURATION)
+        else:
+            break
 
 ###############################################################################################################
 
@@ -707,13 +1151,10 @@ class CameraEffectsTests(unittest.TestCase):
     NUMBER_OF_TEST_ITERATIONS = 100
 
     # the duration (in second) of video recording
-    VIDEO_CAPTURE_DURATION = 30
-
-    # contorl taking video (to speed-up whole process)
-    VIDEO_TAKING_CLIPS = 1
+    VIDEO_CAPTURE_DURATION = 20
 
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
 
         # if (selectAllowDevelopmentWithoutDevLicense() == '0x0'):
         #     updateAllowDevelopmentWithoutDevLicense(1)
@@ -725,17 +1166,14 @@ class CameraEffectsTests(unittest.TestCase):
 
         timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
         print("start CameraEffectsTests [", timeStr, "]")
-        removeFilesFromStorage()
 
         if "VIDEO_CAPTURE_DURATION" in os.environ:
-            self.VIDEO_CAPTURE_DURATION = int(os.environ["VIDEO_CAPTURE_DURATION"])
+            cls.VIDEO_CAPTURE_DURATION = int(os.environ["VIDEO_CAPTURE_DURATION"])
         if "NUMBER_TEST_ITERATIONS" in os.environ:
-            self.NUMBER_OF_TEST_ITERATIONS = int(os.environ["NUMBER_TEST_ITERATIONS"])
-        if "VIDEO_TAKING_CLIPS" in os.environ:
-            self.VIDEO_TAKING_CLIPS = int(os.environ["VIDEO_TAKING_CLIPS"])
+            cls.NUMBER_OF_TEST_ITERATIONS = int(os.environ["NUMBER_TEST_ITERATIONS"])
 
     @classmethod
-    def tearDownClass(self):
+    def tearDownClass(cls):
 
         timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
         print("finish CameraEffectsTests[", timeStr, "]")
@@ -747,24 +1185,24 @@ class CameraEffectsTests(unittest.TestCase):
 
 
     def run_photo_video_test(self):
-        self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE, 0, 0))
+        self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE, 0))
         time.sleep(OPERATION_WAIT_DURATION)
-        self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE, self.VIDEO_TAKING_CLIPS, self.VIDEO_CAPTURE_DURATION))
+        self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE, self.VIDEO_CAPTURE_DURATION))
         time.sleep(OPERATION_WAIT_DURATION)
 
     def test_functional_video_mode(self):
         # CameraMode.VIDEO_MODE: to verity MEP effects on videos
-        self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE, self.VIDEO_TAKING_CLIPS, self.VIDEO_CAPTURE_DURATION))
+        self.assertTrue(testEffectsOnVariousQualities(CameraMode.VIDEO_MODE, self.VIDEO_CAPTURE_DURATION))
 
     def test_functional_photo_mode(self):
         # CameraMode.PHOTO_MODE: to verity MEP effects on photos
-        self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE, 0, 0))
+        self.assertTrue(testEffectsOnVariousQualities(CameraMode.PHOTO_MODE, 0))
 
     def test_orientation_combinations(self):
         screen = rotatescreen.get_primary_display()
         curOrientation = screen.current_orientation
 
-        for i in range(3):
+        for _ in range(3):
             screen.rotate_to((screen.current_orientation + 90) % 360)
             print("test rotate degree", screen.current_orientation)
             self.run_photo_video_test()
@@ -774,15 +1212,15 @@ class CameraEffectsTests(unittest.TestCase):
 
     def test_power_DC_power_simulation(self):
         print("simulate 50% DC")
-        subprocess.Popen(r".\\vbs\\enableDCPowerSimulation.vbs", shell=True).wait()
+        subprocess.Popen('cmd.exe /c cmd.exe /c enableDCPowerSimulation.vbs', cwd='.\\vbs').wait()
         self.run_photo_video_test()
-        subprocess.Popen(r".\\vbs\\disablePowerSimulation.vbs", shell=True).wait()
+        subprocess.Popen('cmd.exe /c cmd.exe /c disablePowerSimulation.vbs', cwd='.\\vbs').wait()
 
     def test_power_AC_power_simulation(self):
         print("simulate 100% AC")
-        subprocess.Popen(r".\\vbs\\enableACPowerSimulation.vbs", shell=True).wait()
+        subprocess.Popen('cmd.exe /c cmd.exe /c enableACPowerSimulation.vbs', cwd='.\\vbs').wait()
         self.run_photo_video_test()
-        subprocess.Popen(r".\\vbs\\disablePowerSimulation.vbs", shell=True).wait()
+        subprocess.Popen('cmd.exe /c cmd.exe /c disablePowerSimulation.vbs', cwd='.\\vbs').wait()
 
     def test_stress_video_photo_mode_iterations(self):
         print("STRESS TEST for", self.NUMBER_OF_TEST_ITERATIONS, "runs")
@@ -790,6 +1228,86 @@ class CameraEffectsTests(unittest.TestCase):
             timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d, %H:%M:%S")
             print("\nINTERATION [", (i + 1), " / ", self.NUMBER_OF_TEST_ITERATIONS,"], TIME:", timeStr)
             self.run_photo_video_test()
+
+    def test_performance_video(self):
+
+        timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d (%H.%M)")
+
+        logFolderPath = f"{os.getcwd()}\{timeStr}"
+        if not os.path.isdir(logFolderPath):
+            os.makedirs(logFolderPath)
+
+        resultFileName = f"{timeStr}.xlsx"
+        excelFileInfo = ExcelFileIfo()
+        excelFileInfo.outputExcelFp = xlsxwriter.Workbook(resultFileName)
+        excelFileInfo.noticeFormat = excelFileInfo.outputExcelFp.add_format({'bold':True, 'font_color':'red'})
+
+        retCode = True
+
+        for power in POWER_SIMULATION_STATUS:
+
+            if (power == "AC_100%"):
+                subprocess.Popen('cmd.exe /c cmd.exe /c enableACPowerSimulation.vbs', cwd='.\\vbs').wait()
+            elif (power == "DC_50%"):
+                subprocess.Popen('cmd.exe /c cmd.exe /c enableDCPowerSimulation.vbs', cwd='.\\vbs').wait()
+            time.sleep(OPERATION_WAIT_DURATION)
+
+            for orientation in DEVICE_ORIENTATION:
+                screen = rotatescreen.get_primary_display()
+                curOrientation = screen.current_orientation
+
+                if (orientation == "portrait"):
+                    targetOrientation = (screen.current_orientation + 90) % 360
+                elif (orientation == "landscape_flipped"):
+                    targetOrientation = (screen.current_orientation + 180) % 360
+                elif (orientation == "portrait_flipped"):
+                    targetOrientation = (screen.current_orientation + 270) % 360
+                else:
+                    targetOrientation = (screen.current_orientation) % 360
+
+                screen.rotate_to(targetOrientation)
+                time.sleep(OPERATION_WAIT_DURATION)
+
+                excelFileInfo.outputExcelCurWorkSheet = excelFileInfo.outputExcelFp.add_worksheet(f"{power}_{orientation}")
+                excelFileInfo.outputExcelRowIdx = 0
+                workSheetTitleList = [
+                    "Quality",
+                    "Scenario",
+                    "FPS",
+                    "avgProcessingTimePerFrame",
+                    "minProcessingTimePerFrame",
+                    "maxProcessingTimePerFrame",
+                    "numberOfFramesAbove33ms"
+                ]
+                excelFileInfo.outputExcelCurWorkSheet.write_row(
+                    excelFileInfo.outputExcelRowIdx,
+                    0,
+                    workSheetTitleList
+                )
+
+                targetFolderPath = f"{logFolderPath}\{power+orientation}"
+                if not os.path.isdir(targetFolderPath):
+                    os.makedirs(targetFolderPath)
+                excelFileInfo.targetFolderPath = targetFolderPath
+
+                for videoQuality in VIDEO_MODE_QUALITY_LIST:
+                    if not forceCameraUseSystemSettings(CameraMode.VIDEO_MODE, videoQuality):
+                        continue
+
+                    for cameraScenario in CAMERA_EFFECTS_SCENARIO_LIST:
+                        ret = testPerformanceForQualityScenario(CameraMode.VIDEO_MODE, videoQuality, cameraScenario, self.VIDEO_CAPTURE_DURATION, excelFileInfo)
+                        if not ret:
+                            print(videoQuality, cameraScenario, "test fail")
+                        retCode = retCode or ret
+
+                screen.rotate_to(curOrientation)
+                time.sleep(OPERATION_WAIT_DURATION)
+
+            subprocess.Popen('cmd.exe /c cmd.exe /c disablePowerSimulation.vbs', cwd='.\\vbs').wait()
+            time.sleep(OPERATION_WAIT_DURATION)
+
+        excelFileInfo.outputExcelFp.close()
+        self.assertTrue(retCode)
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(CameraEffectsTests)
