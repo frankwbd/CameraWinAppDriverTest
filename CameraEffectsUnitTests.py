@@ -104,8 +104,8 @@ DEVICE_ORIENTATION = [
 ]
 
 POWER_SIMULATION_STATUS = [
-    "DC_50%",
-    "AC_100%",
+    "DC_power",
+    "AC_power",
 ]
 
 # the max height can apply MEP effects
@@ -980,21 +980,21 @@ def writeResultsToExcelFile(excelFileInfo: ExcelFileIfo, quality, scenario, fps,
     excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 0, quality)
     excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 1, scenario)
     if fps < 29 or fps == -1:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 2, fps, excelFileInfo.noticeFormat)
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 2, format(fps, ".2f"), excelFileInfo.noticeFormat)
     else:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 2, fps)
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 2, format(fps, ".2f"))
     if avgP > 33 or avgP == -1:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 3, avgP, excelFileInfo.noticeFormat)
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 3, format(avgP, ".2f"), excelFileInfo.noticeFormat)
     else:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 3, avgP)
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 3, format(avgP, ".2f"))
     if minP == -1:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 4, minP, excelFileInfo.noticeFormat)
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 4, format(minP, ".2f"), excelFileInfo.noticeFormat)
     else:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 4, minP)
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 4, format(minP, ".2f"))
     if maxP == -1:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 5, maxP, excelFileInfo.noticeFormat)
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 5, format(maxP, ".2f"), excelFileInfo.noticeFormat)
     else:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 5, maxP)
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 5, format(maxP, ".2f"))
     if numOfFrameAbove33 > 0 or numOfFrameAbove33 == -1:
         excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 6, numOfFrameAbove33, excelFileInfo.noticeFormat)
     else:
@@ -1020,7 +1020,7 @@ def outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo: ExcelFil
         pos = frameRateStr.find("/")
         denominator = int(frameRateStr[pos+1:])
         numerator = int(frameRateStr[:pos])
-        avgFPS = round(numerator/denominator, 2)
+        avgFPS = (numerator/denominator)
     except Exception:
         print("video clip broken")
         avgFPS = -1
@@ -1049,9 +1049,9 @@ def outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo: ExcelFil
         "test fail, ASG trace log error\n")
     else:
         tokens = perfStr.split(", ")
-        minProcessingTimePerFrame = round(int(tokens[12]) / 1000000, 2)  # minProcessingTimePerFrame
-        avgProcessingTimePerFrame = round(int(tokens[11]) / 1000000, 2)  # avgProcessingTimePerFrame
-        maxProcessingTimePerFrame = round(int(tokens[13]) / 1000000, 2)  # maxProcessingTimePerFrame
+        minProcessingTimePerFrame = (int(tokens[12]) / 1000000)  # minProcessingTimePerFrame
+        avgProcessingTimePerFrame = (int(tokens[11]) / 1000000)  # avgProcessingTimePerFrame
+        maxProcessingTimePerFrame = (int(tokens[13]) / 1000000)  # maxProcessingTimePerFrame
         numberOfFramesAbove33ms = int(tokens[20])  #numberOfFramesAbove33ms
 
     excelFileInfo.outputExcelRowIdx += 1
@@ -1237,18 +1237,21 @@ class CameraEffectsTests(unittest.TestCase):
         if not os.path.isdir(logFolderPath):
             os.makedirs(logFolderPath)
 
-        resultFileName = f"{timeStr}.xlsx"
+        txtFileName = f".\{timeStr}\\testResult.txt"
+        txtFp = open(txtFileName, 'w')
+
+        excelFileName = f"{timeStr}.xlsx"
         excelFileInfo = ExcelFileIfo()
-        excelFileInfo.outputExcelFp = xlsxwriter.Workbook(resultFileName)
+        excelFileInfo.outputExcelFp = xlsxwriter.Workbook(excelFileName)
         excelFileInfo.noticeFormat = excelFileInfo.outputExcelFp.add_format({'bold':True, 'font_color':'red'})
 
         retCode = True
 
         for power in POWER_SIMULATION_STATUS:
 
-            if (power == "AC_100%"):
+            if (power == "AC_power"):
                 subprocess.Popen('cmd.exe /c cmd.exe /c enableACPowerSimulation.vbs', cwd='.\\vbs').wait()
-            elif (power == "DC_50%"):
+            elif (power == "DC_power"):
                 subprocess.Popen('cmd.exe /c cmd.exe /c enableDCPowerSimulation.vbs', cwd='.\\vbs').wait()
             time.sleep(OPERATION_WAIT_DURATION)
 
@@ -1285,19 +1288,25 @@ class CameraEffectsTests(unittest.TestCase):
                     workSheetTitleList
                 )
 
-                targetFolderPath = f"{logFolderPath}\{power+orientation}"
+                targetFolderPath = f"{logFolderPath}\{power}_{orientation}"
                 if not os.path.isdir(targetFolderPath):
                     os.makedirs(targetFolderPath)
                 excelFileInfo.targetFolderPath = targetFolderPath
 
                 for videoQuality in VIDEO_MODE_QUALITY_LIST:
+                    pos = videoQuality.find(", ")
                     if not forceCameraUseSystemSettings(CameraMode.VIDEO_MODE, videoQuality):
+                        txtLog = f"{power}\{orientation}\{videoQuality[:pos]}: Skipped\n"
+                        txtFp.write(txtLog)
                         continue
 
                     for cameraScenario in CAMERA_EFFECTS_SCENARIO_LIST:
                         ret = testPerformanceForQualityScenario(CameraMode.VIDEO_MODE, videoQuality, cameraScenario, self.VIDEO_CAPTURE_DURATION, excelFileInfo)
                         if not ret:
-                            print(videoQuality, cameraScenario, "test fail")
+                            txtLog = f"{power}\{orientation}\{videoQuality[:pos]}\{cameraScenario[3]}: Failed\n"
+                        else:
+                            txtLog = f"{power}\{orientation}\{videoQuality[:pos]}\{cameraScenario[3]}: Passed\n"
+                        txtFp.write(txtLog)
                         retCode = retCode or ret
 
                 screen.rotate_to(curOrientation)
@@ -1306,6 +1315,7 @@ class CameraEffectsTests(unittest.TestCase):
             subprocess.Popen('cmd.exe /c cmd.exe /c disablePowerSimulation.vbs', cwd='.\\vbs').wait()
             time.sleep(OPERATION_WAIT_DURATION)
 
+        txtFp.close()
         excelFileInfo.outputExcelFp.close()
         self.assertTrue(retCode)
 
