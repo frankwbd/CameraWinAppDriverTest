@@ -71,6 +71,7 @@ VIDEO_MODE_QUALITY_LIST = [
     "1440p, 4 by 3 aspect ratio, 30 fps",
     "480p, 4 by 3 aspect ratio, 30 fps",
     "640p, 1 by 1 aspect ratio, 30 fps",
+    "600p, 4 by 3 aspect ratio, 30 fps",
 ]
 
 PHOTO_MODE_QUALITY_LIST = [
@@ -107,6 +108,15 @@ POWER_SIMULATION_STATUS = [
     "DC_power",
     "AC_power",
 ]
+
+# the minimal threshold for FPS index in performance measurement
+MINIMUM_FPS_THRESHOLD_IN_PERFORMANCE = 29
+
+# the minimal threshold for time to 1st frmae in performance measurement
+MINIMUM_TIME_TO_FIRST_FRAME_THRESHOLD_IN_PERFORMANCE = 1.5
+
+# the minimal threshold for avg. processing time in performance measurement
+MINIMUM_AVG_PROCESSING_TIME_THRESHOLD_IN_PERFORMANCE = 33
 
 # the max height can apply MEP effects
 MAXIMUM_MEP_RESOLUTION_HEIGHT = 1440
@@ -797,7 +807,7 @@ def startAsgTracing():
 
     # open AsgLogTrace to record log
     sp = subprocess.Popen('cmd.exe /c collect.cmd', stdin=subprocess.PIPE, cwd='.\\AsgTraceLog')
-    time.sleep(OPERATION_WAIT_DURATION)
+    time.sleep(OPERATION_WAIT_DURATION * 5)
     return sp
 
 def stopAsgTracing(sp):
@@ -808,7 +818,7 @@ def stopAsgTracing(sp):
     sp.communicate(input=b'\n')
     sp.terminate()
 
-    time.sleep(5)
+    time.sleep(OPERATION_WAIT_DURATION * 5)
 
 def forceCameraUseSystemSettings(mode : CameraMode, videoQuality) -> bool:
 
@@ -828,13 +838,21 @@ def forceCameraUseSystemSettings(mode : CameraMode, videoQuality) -> bool:
         return False
     settingsButton.click()
 
-    try:
-        cameraSettingsButton = WindowsCameraAppDriver.find_element_by_name("Camera settings")
-    except NoSuchElementException:
+    expanderElements = WindowsCameraAppDriver.find_elements_by_class_name("Microsoft.UI.Xaml.Controls.Expander")
+    for e in expanderElements:
+        if e.text == "Camera settings":
+            cameraSettingsButton = e
+        elif e.text == "Video settings":
+            videoSettingsButton = e
+        elif e.text == "Photo settings":
+            photoSettingsButton = e
+
+    if cameraSettingsButton:
+        cameraSettingsButton.click()
+        time.sleep(OPERATION_WAIT_DURATION)
+    else:
         print("no Camera settings option")
         return False
-    cameraSettingsButton.click()
-    time.sleep(OPERATION_WAIT_DURATION)
 
     try:
         defaultSettingButton = WindowsCameraAppDriver.find_element_by_name("Default settings - These settings apply to the Camera app at the start of each session")
@@ -854,15 +872,10 @@ def forceCameraUseSystemSettings(mode : CameraMode, videoQuality) -> bool:
 
     # switch quality settings and click
     if (mode == CameraMode.VIDEO_MODE):
-        settingStr = "Video settings"
+        qualitySettingsButton = videoSettingsButton
     else:
-        settingStr = "Photo settings"
+        qualitySettingsButton = photoSettingsButton
 
-    try:
-        qualitySettingsButton = WindowsCameraAppDriver.find_element_by_name(settingStr)
-    except NoSuchElementException:
-        print("no", settingStr, "option")
-        return False
     qualitySettingsButton.click()
     time.sleep(OPERATION_WAIT_DURATION)
 
@@ -888,7 +901,6 @@ def forceCameraUseSystemSettings(mode : CameraMode, videoQuality) -> bool:
             break
 
     if not bFoundTargetQuality:
-        print(videoQuality, "not supported")
         closeCameraApp(WindowsCameraAppDriver)
         return False
 
@@ -984,24 +996,24 @@ def writeResultsToExcelFile(excelFileInfo: ExcelFileIfo, quality, scenario, fps,
     excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, scenario)
     colIdx += 1
 
-    if fps < 29 or fps == -1:
+    if fps < MINIMUM_FPS_THRESHOLD_IN_PERFORMANCE or fps == -1:
         excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(fps, ".2f"), excelFileInfo.noticeFormat)
     else:
         excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(fps, ".2f"))
     colIdx += 1
 
-    if avgP > 33 or avgP == -1:
+    if firstFrame == -1:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, "None", excelFileInfo.noticeFormat)
+    elif firstFrame > MINIMUM_TIME_TO_FIRST_FRAME_THRESHOLD_IN_PERFORMANCE:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(firstFrame, ".3f"), excelFileInfo.noticeFormat)
+    else:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(firstFrame, ".3f"))
+    colIdx += 1
+
+    if avgP > MINIMUM_AVG_PROCESSING_TIME_THRESHOLD_IN_PERFORMANCE or avgP == -1:
         excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(avgP, ".2f"), excelFileInfo.noticeFormat)
     else:
         excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(avgP, ".2f"))
-    colIdx += 1
-
-    if firstFrame == -1:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, "None", excelFileInfo.noticeFormat)
-    elif firstFrame > 1.5:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(minP, ".3f"), excelFileInfo.noticeFormat)
-    else:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(minP, ".3f"))
     colIdx += 1
 
     if minP == -1:
@@ -1022,6 +1034,7 @@ def writeResultsToExcelFile(excelFileInfo: ExcelFileIfo, quality, scenario, fps,
         excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, numOfFrameAbove33)
     colIdx += 1
 
+
 def getTimeToFirstFrameInfo(startLogStr, stopLogStr) -> float:
     # datatime: 2023/06/01 06:43:05.594
     fmt = '%Y/%m/%d %H:%M:%S.%f'
@@ -1032,6 +1045,7 @@ def getTimeToFirstFrameInfo(startLogStr, stopLogStr) -> float:
     tstampStart = datetime.strptime(startStr, fmt)
     tstampStop = datetime.strptime(stoptStr, fmt)
     return (tstampStop - tstampStart).total_seconds()
+
 
 def outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo: ExcelFileIfo):
 
