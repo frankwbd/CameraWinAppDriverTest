@@ -854,9 +854,9 @@ def forceCameraUseSystemSettings(mode : CameraMode, videoQuality) -> bool:
 
     # switch quality settings and click
     if (mode == CameraMode.VIDEO_MODE):
-        settingStr = "Videos settings"
+        settingStr = "Video settings"
     else:
-        settingStr = "Photos settings"
+        settingStr = "Photo settings"
 
     try:
         qualitySettingsButton = WindowsCameraAppDriver.find_element_by_name(settingStr)
@@ -975,30 +975,63 @@ def toggleDesiredEffectInSettingsApp(cameraScenario) -> bool:
 
     return True
 
-def writeResultsToExcelFile(excelFileInfo: ExcelFileIfo, quality, scenario, fps, avgP, minP, maxP, numOfFrameAbove33):
+def writeResultsToExcelFile(excelFileInfo: ExcelFileIfo, quality, scenario, fps, firstFrame, avgP, minP, maxP, numOfFrameAbove33):
+    colIdx = 0
 
-    excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 0, quality)
-    excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 1, scenario)
+    excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, quality)
+    colIdx += 1
+
+    excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, scenario)
+    colIdx += 1
+
     if fps < 29 or fps == -1:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 2, format(fps, ".2f"), excelFileInfo.noticeFormat)
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(fps, ".2f"), excelFileInfo.noticeFormat)
     else:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 2, format(fps, ".2f"))
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(fps, ".2f"))
+    colIdx += 1
+
     if avgP > 33 or avgP == -1:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 3, format(avgP, ".2f"), excelFileInfo.noticeFormat)
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(avgP, ".2f"), excelFileInfo.noticeFormat)
     else:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 3, format(avgP, ".2f"))
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(avgP, ".2f"))
+    colIdx += 1
+
+    if firstFrame == -1:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, "None", excelFileInfo.noticeFormat)
+    elif firstFrame > 1.5:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(minP, ".3f"), excelFileInfo.noticeFormat)
+    else:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(minP, ".3f"))
+    colIdx += 1
+
     if minP == -1:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 4, format(minP, ".2f"), excelFileInfo.noticeFormat)
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(minP, ".2f"), excelFileInfo.noticeFormat)
     else:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 4, format(minP, ".2f"))
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(minP, ".2f"))
+    colIdx += 1
+
     if maxP == -1:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 5, format(maxP, ".2f"), excelFileInfo.noticeFormat)
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(maxP, ".2f"), excelFileInfo.noticeFormat)
     else:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 5, format(maxP, ".2f"))
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(maxP, ".2f"))
+    colIdx += 1
+
     if numOfFrameAbove33 > 0 or numOfFrameAbove33 == -1:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 6, numOfFrameAbove33, excelFileInfo.noticeFormat)
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, numOfFrameAbove33, excelFileInfo.noticeFormat)
     else:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, 6, numOfFrameAbove33)
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, numOfFrameAbove33)
+    colIdx += 1
+
+def getTimeToFirstFrameInfo(startLogStr, stopLogStr) -> float:
+    # datatime: 2023/06/01 06:43:05.594
+    fmt = '%Y/%m/%d %H:%M:%S.%f'
+    tokens = startLogStr.split(", ")
+    startStr = tokens[3]
+    tokens = stopLogStr.split(", ")
+    stoptStr = tokens[3]
+    tstampStart = datetime.strptime(startStr, fmt)
+    tstampStop = datetime.strptime(stoptStr, fmt)
+    return (tstampStop - tstampStart).total_seconds()
 
 def outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo: ExcelFileIfo):
 
@@ -1027,32 +1060,42 @@ def outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo: ExcelFil
 
     cameraScenarioId = cameraScenario[4]
 
+    timeToInitializeFirstFrame = -1
+    minProcessingTimePerFrame = -1
+    avgProcessingTimePerFrame = -1
+    maxProcessingTimePerFrame = -1
+    numberOfFramesAbove33ms = -1
+
+    regExpStart = "(.)+starting Microsoft.ASG.Perception provider"
+    regExpEnd = "(.)+, First frame for PerceptionCore instance"
     regExp = fr"(.)+::PerceptionSessionUsageStats,(.)+PerceptionCore-(.)+{cameraScenarioId}"
+    startLogStr = ""
+    stopLogStr = ""
     perfStr = ""
     shutil.copy2(r".\\AsgTraceLog\\AsgTrace.txt", scenarioLogPath)
     with open(r".\\AsgTraceLog\\AsgTrace.txt", 'r') as fp:
         for line in fp:
             # search string
-            if re.search(regExp, line):
+            if re.search(regExpStart, line):
+                startLogStr = line
+            elif re.search(regExpEnd, line):
+                stopLogStr = line
+            elif re.search(regExp, line):
                 perfStr = line
                 break
 
+    if startLogStr and stopLogStr:
+        timeToInitializeFirstFrame = getTimeToFirstFrameInfo(startLogStr, stopLogStr)
+
     pos = videoQuality.find(", ")
-    if not perfStr:
-        minProcessingTimePerFrame = -1
-        avgProcessingTimePerFrame = -1
-        maxProcessingTimePerFrame = -1
-        numberOfFramesAbove33ms = -1
-        print(
-        videoQuality[:pos],
-        cameraScenario[3],
-        "test fail, ASG trace log error\n")
-    else:
+    if perfStr:
         tokens = perfStr.split(", ")
         minProcessingTimePerFrame = (int(tokens[12]) / 1000000)  # minProcessingTimePerFrame
         avgProcessingTimePerFrame = (int(tokens[11]) / 1000000)  # avgProcessingTimePerFrame
         maxProcessingTimePerFrame = (int(tokens[13]) / 1000000)  # maxProcessingTimePerFrame
         numberOfFramesAbove33ms = int(tokens[20])  #numberOfFramesAbove33ms
+    else:
+        print(videoQuality[:pos], cameraScenario[3], "test fail, ASG trace log error\n")
 
     excelFileInfo.outputExcelRowIdx += 1
     # print(
@@ -1060,8 +1103,9 @@ def outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo: ExcelFil
     #     cameraScenario[3],
     #     "result:\n" "FPS:",
     #     avgFPS,
-    #     ",",
-    #     "processTimePerFrame[avg, min, max]: [",
+    #     "timeToInitialize1stFrame:",
+    #     timeToInitializeFirstFrame,
+    #     ", processTimePerFrame[avg, min, max]: [",
     #     avgProcessingTimePerFrame,
     #     "ms,",
     #     minProcessingTimePerFrame,
@@ -1076,6 +1120,7 @@ def outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo: ExcelFil
         videoQuality[:pos],
         cameraScenario[3],
         avgFPS,
+        timeToInitializeFirstFrame,
         avgProcessingTimePerFrame,
         minProcessingTimePerFrame,
         maxProcessingTimePerFrame,
@@ -1097,7 +1142,7 @@ def  cameraRecordingAction(mode : CameraMode, videoQuality, cameraScenario, vide
     # taking video...
     retCode = takeVideosPhotos(WindowsCameraAppDriver, mode)
     if not retCode:
-        print("takeVideosPhotos")
+        print("takeVideosPhotos fail")
 
     closeCameraApp(WindowsCameraAppDriver)
     stopAsgTracing(sp)
@@ -1277,6 +1322,7 @@ class CameraEffectsTests(unittest.TestCase):
                     "Quality",
                     "Scenario",
                     "FPS",
+                    "timeToInitializeFirstFrame",
                     "avgProcessingTimePerFrame",
                     "minProcessingTimePerFrame",
                     "maxProcessingTimePerFrame",
