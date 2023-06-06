@@ -113,7 +113,7 @@ POWER_SIMULATION_STATUS = [
 MINIMUM_FPS_THRESHOLD_IN_PERFORMANCE = 29
 
 # the minimal threshold for time to 1st frmae in performance measurement
-MINIMUM_TIME_TO_FIRST_FRAME_THRESHOLD_IN_PERFORMANCE = 1.5
+MINIMUM_TIME_TO_FIRST_FRAME_THRESHOLD_IN_PERFORMANCE = 1.250
 
 # the minimal threshold for avg. processing time in performance measurement
 MINIMUM_AVG_PROCESSING_TIME_THRESHOLD_IN_PERFORMANCE = 33
@@ -786,19 +786,7 @@ def testEffectsOnVariousQualities(mode : CameraMode, videoCaptureDuration) -> bo
 ###############################################################################################################
 
 '''
-    testEffectsOnVariousQualities is to test MEP effects:
-    1. launch Camera app
-    2. switch to VIDEOS/PHOTOS mode depends on the input parameter
-    3. open setting page to toggle desired testing quality (rosulutions)
-    4. laucn testEachCameraEffectCombinations
-    5. close Camera app
-
-    [input] VIDEO_MODE or CAMERA_MODE
-    [input] takeVideoClips to control whether taking video clips
-            - 1 : to take video clips
-            - 0 : not to take clips
-    [input] videoCaptureDuration
-            - the vidoe duraiton if to take video clip
+    startAsgTracing is to launch ASG tracing utility
 '''
 
 def startAsgTracing():
@@ -810,6 +798,15 @@ def startAsgTracing():
     time.sleep(OPERATION_WAIT_DURATION * 5)
     return sp
 
+
+###############################################################################################################
+
+###############################################################################################################
+
+'''
+    stopAsgTracing is to stop ASG tracing utility
+'''
+
 def stopAsgTracing(sp):
 
     waitFrameServerServiceStopped()
@@ -820,15 +817,25 @@ def stopAsgTracing(sp):
 
     time.sleep(OPERATION_WAIT_DURATION * 5)
 
+
+###############################################################################################################
+
+###############################################################################################################
+
+'''
+    forceCameraUseSystemSettings is to switch Camera into desired mode and configure video quality for testing
+
+    [input] VIDEO_MODE or CAMERA_MODE
+    [input] videoQuality in VIDEO_MODE_QUALITY_LIST
+
+    [output] bool value for the operation result:
+             True: success
+             False: fail (UI button disappear or the desired video quality is not available)
+'''
+
 def forceCameraUseSystemSettings(mode : CameraMode, videoQuality) -> bool:
 
     WindowsCameraAppDriver = launchCameraApp()
-
-    # Switch to correct mode if necessary
-    if (mode == CameraMode.VIDEO_MODE):
-        switchToVideoMode(WindowsCameraAppDriver)
-    else:
-        switchToPhotoMode(WindowsCameraAppDriver)
 
     # Open settings menu
     try:
@@ -840,12 +847,13 @@ def forceCameraUseSystemSettings(mode : CameraMode, videoQuality) -> bool:
 
     expanderElements = WindowsCameraAppDriver.find_elements_by_class_name("Microsoft.UI.Xaml.Controls.Expander")
     for e in expanderElements:
-        if e.text == "Camera settings":
-            cameraSettingsButton = e
-        elif e.text == "Video settings":
-            videoSettingsButton = e
-        elif e.text == "Photo settings":
-            photoSettingsButton = e
+        match e.text:
+            case "Camera settings":
+                cameraSettingsButton = e
+            case "Video settings":
+                videoSettingsButton = e
+            case "Photo settings":
+                photoSettingsButton = e
 
     if cameraSettingsButton:
         cameraSettingsButton.click()
@@ -889,6 +897,7 @@ def forceCameraUseSystemSettings(mode : CameraMode, videoQuality) -> bool:
         if (qualityButton.text in VIDEO_MODE_QUALITY_LIST):
             qualityButton.click()
             time.sleep(OPERATION_WAIT_DURATION)
+            break
 
     # query quality options
     qualityComboBoxItems = WindowsCameraAppDriver.find_elements_by_class_name("ComboBoxItem")
@@ -900,12 +909,24 @@ def forceCameraUseSystemSettings(mode : CameraMode, videoQuality) -> bool:
             bFoundTargetQuality = True
             break
 
-    if not bFoundTargetQuality:
-        closeCameraApp(WindowsCameraAppDriver)
-        return False
-
     closeCameraApp(WindowsCameraAppDriver)
-    return True
+    return bFoundTargetQuality
+
+
+###############################################################################################################
+
+###############################################################################################################
+
+'''
+    toggleDesiredEffectInSettingsApp is to configure trageting scenatio in SettingApp
+
+    [input] cameraScenario in CAMERA_EFFECTS_SCENARIO_LIST
+
+    [output] bool value for the operation result:
+             True: success
+             False: fail (UI button disappear in SettingApp)
+'''
+
 
 def toggleDesiredEffectInSettingsApp(cameraScenario) -> bool:
 
@@ -941,19 +962,21 @@ def toggleDesiredEffectInSettingsApp(cameraScenario) -> bool:
 
     toggleSwitchButtons = WindowsSettingAppDriver.find_elements_by_class_name("ToggleSwitch")
     for button in toggleSwitchButtons:
-        if button.text == "Automatic framing":
-            autoFramingButton = button
-        elif button.text == "Eye contact":
-            eyeContactButton = button
-        elif button.text == "Background effects":
-            backgroundEffectButton = button
+        match button.text:
+            case "Automatic framing":
+                autoFramingButton = button
+            case "Eye contact":
+                eyeContactButton = button
+            case "Background effects":
+                backgroundEffectButton = button
 
     radioButtons = WindowsSettingAppDriver.find_elements_by_class_name("RadioButton")
     for button in radioButtons:
-        if button.text == "Standard blur":
-            standardBlurButton = button
-        if button.text == "Portrait blur":
-            portraitBlurButton = button
+        match button.text:
+            case "Standard blur":
+                standardBlurButton = button
+            case "Portrait blur":
+                portraitBlurButton = button
 
     # for AF
     if autoFramingButton:
@@ -986,6 +1009,27 @@ def toggleDesiredEffectInSettingsApp(cameraScenario) -> bool:
     closeSettingApp(WindowsSettingAppDriver)
 
     return True
+
+
+###############################################################################################################
+
+###############################################################################################################
+
+'''
+    writeResultsToExcelFile is to collect the performance indice into excel file for record
+
+    [input] excelFileInfo is the targeting excel file information
+    [input] quality: video quality
+    [input] scenario: testing scenario
+    [input] fps: Frame per second (should be less than MINIMUM_FPS_THRESHOLD_IN_PERFORMANCE)
+    [input] firstFrame: time to capture 1st frame (should be less than MINIMUM_TIME_TO_FIRST_FRAME_THRESHOLD_IN_PERFORMANCE)
+    [input] avgP: average processing time
+    [input] minP: minimal processing time
+    [input] maxP: maximal processing time
+    [input] numOfFrameAbove33: number of frames exceed 33ms processing time (should be 0 in ideal case)
+
+'''
+
 
 def writeResultsToExcelFile(excelFileInfo: ExcelFileIfo, quality, scenario, fps, firstFrame, avgP, minP, maxP, numOfFrameAbove33):
     colIdx = 0
@@ -1035,6 +1079,23 @@ def writeResultsToExcelFile(excelFileInfo: ExcelFileIfo, quality, scenario, fps,
     colIdx += 1
 
 
+###############################################################################################################
+
+###############################################################################################################
+
+'''
+    getTimeToFirstFrameInfo is to calculate time to 1st frame according to timestamps of below two log:
+    startLogStr with pattern "starting Microsoft.ASG.Perception provider"
+    stopLogStr with pattren "First frame for PerceptionCore instance "
+
+    [input] startLogStr
+    [input] stopLogStr
+
+    [output] the cost of time to 1st frame in second with floating format
+
+'''
+
+
 def getTimeToFirstFrameInfo(startLogStr, stopLogStr) -> float:
     # datatime: 2023/06/01 06:43:05.594
     fmt = '%Y/%m/%d %H:%M:%S.%f'
@@ -1047,7 +1108,25 @@ def getTimeToFirstFrameInfo(startLogStr, stopLogStr) -> float:
     return (tstampStop - tstampStart).total_seconds()
 
 
-def outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo: ExcelFileIfo):
+###############################################################################################################
+
+###############################################################################################################
+
+'''
+    outputPerformanceIndex is to create new folder to store video clip/asg trace,
+    and parse the result asg file for performance index
+
+    [input] videoQuality in VIDEO_MODE_QUALITY_LIST
+    [input] cameraScenario in CAMERA_EFFECTS_SCENARIO_LIST
+    [input] excelFileInfo is the infomation of writing excel file (performance record)
+
+    [output] bool value for the operation result:
+             True: success
+             False: fail (asg tracing fail due to wrong scenario id)
+'''
+
+
+def outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo: ExcelFileIfo) -> bool:
 
     pos = videoQuality.find(", ")
     targetFolderPathWithQuality = f"{excelFileInfo.targetFolderPath}\{videoQuality[:pos]}"
@@ -1110,6 +1189,7 @@ def outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo: ExcelFil
         numberOfFramesAbove33ms = int(tokens[20])  #numberOfFramesAbove33ms
     else:
         print(videoQuality[:pos], cameraScenario[3], "test fail, ASG trace log error\n")
+        return False
 
     excelFileInfo.outputExcelRowIdx += 1
     # print(
@@ -1140,6 +1220,28 @@ def outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo: ExcelFil
         maxProcessingTimePerFrame,
         numberOfFramesAbove33ms,
     )
+    return True
+
+
+###############################################################################################################
+
+###############################################################################################################
+
+'''
+    cameraRecordingAction is to enalbe ASG tracing as well as taking video within CameraApp,
+    also parsing asg trace result for performance analysis
+
+    [input] VIDEO_MODE or CAMERA_MODE
+    [input] videoQuality in VIDEO_MODE_QUALITY_LIST
+    [input] cameraScenario in CAMERA_EFFECTS_SCENARIO_LIST
+    [input] videoCaptureDuration is the recording time for video clip, can be tweak via environment variable(VIDEO_CAPTURE_DURATION)
+    [input] excelFileInfo is the infomation of writing excel file (performance record)
+
+    [output] bool value for the operation result:
+             True: success
+             False: fail (asg tracing fail or taking video fail)
+'''
+
 
 def  cameraRecordingAction(mode : CameraMode, videoQuality, cameraScenario, videoCaptureDuration, excelFileInfo: ExcelFileIfo) -> bool:
 
@@ -1151,6 +1253,12 @@ def  cameraRecordingAction(mode : CameraMode, videoQuality, cameraScenario, vide
         print("create WindowsCameraAppDriver fail")
         return False
 
+    # Switch to correct mode if necessary
+    if (mode == CameraMode.VIDEO_MODE):
+        switchToVideoMode(WindowsCameraAppDriver)
+    else:
+        switchToPhotoMode(WindowsCameraAppDriver)
+
     WindowsCameraAppDriver.VIDEO_CAPTURE_DURATION = videoCaptureDuration
 
     # taking video...
@@ -1158,14 +1266,34 @@ def  cameraRecordingAction(mode : CameraMode, videoQuality, cameraScenario, vide
     if not retCode:
         print("takeVideosPhotos fail")
 
+    switchToPhotoMode(WindowsCameraAppDriver)
     closeCameraApp(WindowsCameraAppDriver)
     stopAsgTracing(sp)
 
-    outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo)
+    retCode = retCode and outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo)
 
     removeFilesFromStorage()
 
     return retCode
+
+
+###############################################################################################################
+
+###############################################################################################################
+
+'''
+    testPerformanceForQualityScenario is to test the target scenario with corresponding video quality
+
+    [input] VIDEO_MODE or CAMERA_MODE
+    [input] videoQuality in VIDEO_MODE_QUALITY_LIST
+    [input] cameraScenario in CAMERA_EFFECTS_SCENARIO_LIST
+    [input] videoCaptureDuration is the recording time for video clip, can be tweak via environment variable(VIDEO_CAPTURE_DURATION)
+    [input] excelFileInfo is the infomation of writing excel file (performance record)
+
+    [output] bool value for the operation result:
+             True: success
+             False: fail (UI button disappear in SettingApp or taking video fail in CameraApp)
+'''
 
 def testPerformanceForQualityScenario(mode : CameraMode, videoQuality, cameraScenario, videoCaptureDuration, excelFileInfo: ExcelFileIfo) -> bool:
 
@@ -1306,6 +1434,7 @@ class CameraEffectsTests(unittest.TestCase):
 
         retCode = True
 
+        # go through all power criterias
         for power in POWER_SIMULATION_STATUS:
 
             if (power == "AC_power"):
@@ -1314,6 +1443,7 @@ class CameraEffectsTests(unittest.TestCase):
                 subprocess.Popen('cmd.exe /c cmd.exe /c enableDCPowerSimulation.vbs', cwd='.\\vbs').wait()
             time.sleep(OPERATION_WAIT_DURATION)
 
+            # go through four different simulated orientations
             for orientation in DEVICE_ORIENTATION:
                 screen = rotatescreen.get_primary_display()
                 curOrientation = screen.current_orientation
@@ -1330,13 +1460,14 @@ class CameraEffectsTests(unittest.TestCase):
                 screen.rotate_to(targetOrientation)
                 time.sleep(OPERATION_WAIT_DURATION)
 
+                # create a excel file to record all performance results
                 excelFileInfo.outputExcelCurWorkSheet = excelFileInfo.outputExcelFp.add_worksheet(f"{power}_{orientation}")
                 excelFileInfo.outputExcelRowIdx = 0
                 workSheetTitleList = [
                     "Quality",
                     "Scenario",
                     "FPS",
-                    "timeToInitializeFirstFrame",
+                    "timeToFirstFrame",
                     "avgProcessingTimePerFrame",
                     "minProcessingTimePerFrame",
                     "maxProcessingTimePerFrame",
@@ -1348,6 +1479,7 @@ class CameraEffectsTests(unittest.TestCase):
                     workSheetTitleList
                 )
 
+                # prepare the output folder path, which contains recorded video clips and corresponding asgTrace files under different qualities and scenarios
                 targetFolderPath = f"{logFolderPath}\{power}_{orientation}"
                 if not os.path.isdir(targetFolderPath):
                     os.makedirs(targetFolderPath)
