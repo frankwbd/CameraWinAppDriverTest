@@ -1421,6 +1421,7 @@ def getCameraVidPid() -> bool:
     except Exception as e:
         print("Error:", e)
 
+
 def collectSystemInfoToFile(txtFp, mepDriverVersionStr):
     txtFp.write(f"Device name: {socket.gethostname()}, {getOsBuildVersion()}\n")
     txtFp.write(f"MEP driver version: {mepDriverVersionStr}\n")
@@ -1580,9 +1581,7 @@ class CameraEffectsTests(unittest.TestCase):
     def test_performance_video(self):
 
         mepDriverVersionStr = getMepDriverVersion()
-        if mepDriverVersionStr is None:
-            self.assertTrue(False)
-            return
+        self.assertIsNotNone(mepDriverVersionStr)
 
         timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d (%H.%M)")
 
@@ -1592,7 +1591,7 @@ class CameraEffectsTests(unittest.TestCase):
 
         txtFileName = f".\{timeStr}\\testResult.txt"
 
-        with open(txtFileName, 'w') as txtFp:
+        with open(txtFileName, 'a') as txtFp:
             collectSystemInfoToFile(txtFp, mepDriverVersionStr)
 
         excelFileName = f"{timeStr}.xlsx"
@@ -1663,7 +1662,8 @@ class CameraEffectsTests(unittest.TestCase):
                     pos = videoQuality.find(", ")
                     if not forceCameraUseSystemSettings(CameraMode.VIDEO_MODE, videoQuality):
                         txtLog = f"[{testIndex}/{numTestCases}] {power}\{orientation}\{videoQuality[:pos]}: Skipped\n"
-                        txtFp.write(txtLog)
+                        with open(txtFileName, 'a') as txtFp:
+                            txtFp.write(txtLog)
                         print(txtLog)
                         testIndex += 1
                         continue
@@ -1674,7 +1674,8 @@ class CameraEffectsTests(unittest.TestCase):
                             txtLog = f"[{testIndex}/{numTestCases}] {power}\{orientation}\{videoQuality[:pos]}\{cameraScenario[3]}: Failed\n"
                         else:
                             txtLog = f"[{testIndex}/{numTestCases}] {power}\{orientation}\{videoQuality[:pos]}\{cameraScenario[3]}: Passed\n"
-                        txtFp.write(txtLog)
+                        with open(txtFileName, 'a') as txtFp:
+                            txtFp.write(txtLog)
                         print(txtLog)
                         testIndex += 1
                         retCode = retCode or ret
@@ -1685,7 +1686,6 @@ class CameraEffectsTests(unittest.TestCase):
             subprocess.Popen('cmd.exe /c cmd.exe /c disablePowerSimulation.vbs', cwd='.\\vbs').wait()
             time.sleep(OPERATION_WAIT_DURATION)
 
-        txtFp.close()
         excelFileInfo.outputExcelFp.close()
         self.assertTrue(retCode)
 
