@@ -1372,6 +1372,20 @@ def getMepDriverVersion() -> str:
         return None
 
 
+def getPerceptionCoreDllVersion() -> str:
+
+    searchPath = os.path.join('C:\Windows\System32\DriverStore\FileRepository\*', 'PerceptionCore.dll')
+    fileList = glob.glob(searchPath)
+
+    if not fileList:
+        return None
+
+    info = GetFileVersionInfo (fileList[0], "\\")
+    ms = info['FileVersionMS']
+    ls = info['FileVersionLS']
+    return f"{HIWORD (ms)}.{LOWORD (ms)}.{HIWORD (ls)}.{LOWORD (ls)}"
+
+
 def getFrameServerDllVersion() -> str:
 
     dllPath = r'C:\Windows\System32\FrameServer.dll'
@@ -1406,6 +1420,13 @@ def getCameraVidPid() -> bool:
 
     except Exception as e:
         print("Error:", e)
+
+def collectSystemInfoToFile(txtFp, mepDriverVersionStr):
+    txtFp.write(f"Device name: {socket.gethostname()}, {getOsBuildVersion()}\n")
+    txtFp.write(f"MEP driver version: {mepDriverVersionStr}\n")
+    txtFp.write(f"PerceptionCore version: {getPerceptionCoreDllVersion()}\n")
+    txtFp.write(f"WindowsCamera(UWP) version: {getWindowsCameraUWPVersion()}")
+    txtFp.write(f"Frameserver.dll version: {getFrameServerDllVersion()}\n")
 
 
 def updateVideoQualityList(mode : CameraMode):
@@ -1559,7 +1580,7 @@ class CameraEffectsTests(unittest.TestCase):
     def test_performance_video(self):
 
         mepDriverVersionStr = getMepDriverVersion()
-        if mepDriverVersionStr == None:
+        if mepDriverVersionStr is None:
             self.assertTrue(False)
             return
 
@@ -1570,11 +1591,9 @@ class CameraEffectsTests(unittest.TestCase):
             os.makedirs(logFolderPath)
 
         txtFileName = f".\{timeStr}\\testResult.txt"
-        txtFp = open(txtFileName, 'w')
-        txtFp.write(f"{getOsBuildVersion()}\n")
-        txtFp.write(f"MEP driver version: {mepDriverVersionStr}\n")
-        txtFp.write(f"WindowsCamera(UWP) version: {getWindowsCameraUWPVersion()}")
-        txtFp.write(f"Frameserver.dll version: {getFrameServerDllVersion()}\n")
+
+        with open(txtFileName, 'w') as txtFp:
+            collectSystemInfoToFile(txtFp, mepDriverVersionStr)
 
         excelFileName = f"{timeStr}.xlsx"
         excelFileInfo = ExcelFileIfo()
