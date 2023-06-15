@@ -14,6 +14,7 @@ import shutil
 import platform
 import winreg
 import wmi
+import win32com.client
 from appium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from enum import Enum
@@ -1353,11 +1354,27 @@ def getOsBuildVersion() -> str:
 
     return f"{platform.platform()} (OS Build {osBuildInfo})"
 
+def getMepDriverVersion() -> str:
 
-def getCameraVidPid():
+    driverName = "Windows Camera Effects"
+    try:
+        wmi = win32com.client.GetObject("winmgmts:")
+        drivers = wmi.ExecQuery(
+            f"SELECT * FROM Win32_PnPSignedDriver WHERE DeviceName LIKE '{driverName}%'"
+        )
+        if len(drivers) <= 0:
+            return None
+        driver = drivers[0]
+        return driver.DriverVersion
+    except Exception as e:
+        print("Error:", e)
+        return None
+
+
+def getCameraVidPid() -> bool:
     try:
         c = wmi.WMI()
-        query = "SELECT * FROM Win32_PnPEntity WHERE Name LIKE '%camera%'"
+        query = "SELECT * FROM Win32_PnPEntity WHERE Name LIKE '%Windows Studio Effects Camera%'"
         result = c.query(query)
 
         for r in result:
@@ -1517,6 +1534,11 @@ class CameraEffectsTests(unittest.TestCase):
 
     def test_performance_video(self):
 
+        mepDriverVersionStr = getMepDriverVersion()
+        if mepDriverVersionStr == None:
+            self.assertTrue(False)
+            return
+
         timeStr = datetime.fromtimestamp(datetime.now().timestamp()).strftime("%Y-%m-%d (%H.%M)")
 
         logFolderPath = f"{os.getcwd()}\{timeStr}"
@@ -1526,6 +1548,7 @@ class CameraEffectsTests(unittest.TestCase):
         txtFileName = f".\{timeStr}\\testResult.txt"
         txtFp = open(txtFileName, 'w')
         txtFp.write(getOsBuildVersion() + "\n")
+        txtFp.write(f"MEP driver version: {mepDriverVersionStr}\n")
 
         excelFileName = f"{timeStr}.xlsx"
         excelFileInfo = ExcelFileIfo()
