@@ -1371,6 +1371,7 @@ def getMepDriverVersion() -> str:
         print("Error:", e)
         return None
 
+
 def getFrameServerDllVersion() -> str:
 
     dllPath = r'C:\Windows\System32\FrameServer.dll'
@@ -1378,6 +1379,20 @@ def getFrameServerDllVersion() -> str:
     ms = info['FileVersionMS']
     ls = info['FileVersionLS']
     return f"{HIWORD (ms)}.{LOWORD (ms)}.{HIWORD (ls)}.{LOWORD (ls)}"
+
+
+def getWindowsCameraUWPVersion() -> str:
+
+    command = 'Get-Process'
+    # Execute the command and capture the output
+    result = subprocess.run(['powershell',
+                             'Get-AppXPackage -Name "Microsoft.WindowsCamera"  | Select-Object -ExpandProperty Version',
+                             command], capture_output=True, text=True)
+
+    if result.returncode == 0:
+        return result.stdout
+    print(result.stderr)
+    return None
 
 
 def getCameraVidPid() -> bool:
@@ -1558,6 +1573,7 @@ class CameraEffectsTests(unittest.TestCase):
         txtFp = open(txtFileName, 'w')
         txtFp.write(f"{getOsBuildVersion()}\n")
         txtFp.write(f"MEP driver version: {mepDriverVersionStr}\n")
+        txtFp.write(f"WindowsCamera(UWP) version: {getWindowsCameraUWPVersion()}")
         txtFp.write(f"Frameserver.dll version: {getFrameServerDllVersion()}\n")
 
         excelFileName = f"{timeStr}.xlsx"
