@@ -20,6 +20,7 @@ from selenium.common.exceptions import NoSuchElementException
 from enum import Enum
 from datetime import datetime
 from videoprops import get_video_properties
+from win32api import GetFileVersionInfo, LOWORD, HIWORD
 
 ###############################################################################################################
 
@@ -1370,6 +1371,14 @@ def getMepDriverVersion() -> str:
         print("Error:", e)
         return None
 
+def getFrameServerDllVersion() -> str:
+
+    dllPath = r'C:\Windows\System32\FrameServer.dll'
+    info = GetFileVersionInfo (dllPath, "\\")
+    ms = info['FileVersionMS']
+    ls = info['FileVersionLS']
+    return f"{HIWORD (ms)}.{LOWORD (ms)}.{HIWORD (ls)}.{LOWORD (ls)}"
+
 
 def getCameraVidPid() -> bool:
     try:
@@ -1547,8 +1556,9 @@ class CameraEffectsTests(unittest.TestCase):
 
         txtFileName = f".\{timeStr}\\testResult.txt"
         txtFp = open(txtFileName, 'w')
-        txtFp.write(getOsBuildVersion() + "\n")
+        txtFp.write(f"{getOsBuildVersion()}\n")
         txtFp.write(f"MEP driver version: {mepDriverVersionStr}\n")
+        txtFp.write(f"Frameserver.dll version: {getFrameServerDllVersion()}\n")
 
         excelFileName = f"{timeStr}.xlsx"
         excelFileInfo = ExcelFileIfo()
