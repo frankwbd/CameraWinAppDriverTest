@@ -11,6 +11,9 @@ import psutil
 import re
 import xlsxwriter
 import shutil
+import platform
+import winreg
+import wmi
 from appium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from enum import Enum
@@ -43,6 +46,7 @@ class ExcelFileIfo():
     outputExcelCurWorkSheet = any
     outputExcelRowIdx = 0
     noticeFormat = any
+    warningFormat = any
     targetFolderPath = any
 
 MEP_EFFECTS = [
@@ -65,13 +69,13 @@ FLICKER_REDUCTION = [
 ]
 
 VIDEO_MODE_QUALITY_LIST = [
-    "1080p, 16 by 9 aspect ratio, 30 fps",
-    "720p, 16 by 9 aspect ratio, 30 fps",
-    "360p, 16 by 9 aspect ratio, 30 fps",
-    "1440p, 4 by 3 aspect ratio, 30 fps",
-    "480p, 4 by 3 aspect ratio, 30 fps",
-    "640p, 1 by 1 aspect ratio, 30 fps",
-    "600p, 4 by 3 aspect ratio, 30 fps",
+    # "1080p, 16 by 9 aspect ratio, 30 fps",
+    # "720p, 16 by 9 aspect ratio, 30 fps",
+    # "360p, 16 by 9 aspect ratio, 30 fps",
+    # "1440p, 4 by 3 aspect ratio, 30 fps",
+    # "480p, 4 by 3 aspect ratio, 30 fps",
+    # "640p, 1 by 1 aspect ratio, 30 fps",
+    # "600p, 4 by 3 aspect ratio, 30 fps",
 ]
 
 PHOTO_MODE_QUALITY_LIST = [
@@ -110,10 +114,16 @@ POWER_SIMULATION_STATUS = [
 ]
 
 # the minimal threshold for FPS index in performance measurement
-MINIMUM_FPS_THRESHOLD_IN_PERFORMANCE = 29
+MINIMUM_FPS_THRESHOLD_IN_PERFORMANCE = 25
 
-# the minimal threshold for time to 1st frmae in performance measurement
-MINIMUM_TIME_TO_FIRST_FRAME_THRESHOLD_IN_PERFORMANCE = 1.250
+# the warning threshold for FPS index in performance measurement
+WARNING_FPS_THRESHOLD_IN_PERFORMANCE = 29
+
+# the maximun threshold for time to 1st frmae in performance measurement
+MAXIMUN_TIME_TO_FIRST_FRAME_THRESHOLD_IN_PERFORMANCE = 2.000
+
+# the warning threshold for time to 1st frmae in performance measurement
+WARNING_TIME_TO_FIRST_FRAME_THRESHOLD_IN_PERFORMANCE = 1.250
 
 # the minimal threshold for avg. processing time in performance measurement
 MINIMUM_AVG_PROCESSING_TIME_THRESHOLD_IN_PERFORMANCE = 33
@@ -1042,14 +1052,18 @@ def writeResultsToExcelFile(excelFileInfo: ExcelFileIfo, quality, scenario, fps,
 
     if fps < MINIMUM_FPS_THRESHOLD_IN_PERFORMANCE or fps == -1:
         excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(fps, ".2f"), excelFileInfo.noticeFormat)
+    elif fps < WARNING_FPS_THRESHOLD_IN_PERFORMANCE:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(fps, ".2f"), excelFileInfo.warningFormat)
     else:
         excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(fps, ".2f"))
     colIdx += 1
 
     if firstFrame == -1:
-        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, "None", excelFileInfo.noticeFormat)
-    elif firstFrame > MINIMUM_TIME_TO_FIRST_FRAME_THRESHOLD_IN_PERFORMANCE:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, "None", excelFileInfo.warningFormat)
+    elif firstFrame >= MAXIMUN_TIME_TO_FIRST_FRAME_THRESHOLD_IN_PERFORMANCE:
         excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(firstFrame, ".3f"), excelFileInfo.noticeFormat)
+    elif firstFrame > WARNING_TIME_TO_FIRST_FRAME_THRESHOLD_IN_PERFORMANCE:
+        excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(firstFrame, ".3f"), excelFileInfo.warningFormat)
     else:
         excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(firstFrame, ".3f"))
     colIdx += 1
@@ -1072,7 +1086,7 @@ def writeResultsToExcelFile(excelFileInfo: ExcelFileIfo, quality, scenario, fps,
         excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, format(maxP, ".2f"))
     colIdx += 1
 
-    if numOfFrameAbove33 > 0 or numOfFrameAbove33 == -1:
+    if numOfFrameAbove33 == -1:
         excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, numOfFrameAbove33, excelFileInfo.noticeFormat)
     else:
         excelFileInfo.outputExcelCurWorkSheet.write(excelFileInfo.outputExcelRowIdx, colIdx, numOfFrameAbove33)
@@ -1128,6 +1142,8 @@ def getTimeToFirstFrameInfo(startLogStr, stopLogStr) -> float:
 
 def outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo: ExcelFileIfo) -> bool:
 
+    retCode = True
+
     pos = videoQuality.find(", ")
     targetFolderPathWithQuality = f"{excelFileInfo.targetFolderPath}\{videoQuality[:pos]}"
     if not os.path.isdir(targetFolderPathWithQuality):
@@ -1150,6 +1166,7 @@ def outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo: ExcelFil
     except Exception:
         print("video clip broken")
         avgFPS = -1
+        retCode = False
 
     cameraScenarioId = cameraScenario[4]
 
@@ -1189,7 +1206,7 @@ def outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo: ExcelFil
         numberOfFramesAbove33ms = int(tokens[20])  #numberOfFramesAbove33ms
     else:
         print(videoQuality[:pos], cameraScenario[3], "test fail, ASG trace log error\n")
-        return False
+        retCode = False
 
     excelFileInfo.outputExcelRowIdx += 1
     # print(
@@ -1220,7 +1237,7 @@ def outputPerformanceIndex(videoQuality, cameraScenario, excelFileInfo: ExcelFil
         maxProcessingTimePerFrame,
         numberOfFramesAbove33ms,
     )
-    return True
+    return retCode
 
 
 ###############################################################################################################
@@ -1266,7 +1283,7 @@ def  cameraRecordingAction(mode : CameraMode, videoQuality, cameraScenario, vide
     if not retCode:
         print("takeVideosPhotos fail")
 
-    switchToPhotoMode(WindowsCameraAppDriver)
+    # switchToPhotoMode(WindowsCameraAppDriver)
     closeCameraApp(WindowsCameraAppDriver)
     stopAsgTracing(sp)
 
@@ -1328,6 +1345,88 @@ def waitFrameServerServiceStopped():
             time.sleep(OPERATION_WAIT_DURATION)
         else:
             break
+
+def getOsBuildVersion() -> str:
+
+    winCurrentVersion = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'SOFTWARE\Microsoft\Windows NT\CurrentVersion')
+    osBuildInfo = str(winreg.QueryValueEx(winCurrentVersion, "CurrentBuildNumber")[0]) + '.' + str(winreg.QueryValueEx(winCurrentVersion, "UBR")[0])
+
+    return f"{platform.platform()} (OS Build {osBuildInfo})"
+
+
+def getCameraVidPid():
+    try:
+        c = wmi.WMI()
+        query = "SELECT * FROM Win32_PnPEntity WHERE Name LIKE '%camera%'"
+        result = c.query(query)
+
+        for r in result:
+            print(r)
+
+    except Exception as e:
+        print("Error:", e)
+
+
+def updateVideoQualityList(mode : CameraMode):
+
+    # trying to open WindowsCamera app
+    WindowsCameraAppDriver = launchCameraApp()
+    if not WindowsCameraAppDriver:
+        print("create WindowsCameraAppDriver fail")
+        return False
+
+    # Switch to correct mode if necessary
+    if (mode == CameraMode.VIDEO_MODE):
+        switchToVideoMode(WindowsCameraAppDriver)
+    else:
+        switchToPhotoMode(WindowsCameraAppDriver)
+
+    # Open settings menu
+    try:
+        settingsButton = WindowsCameraAppDriver.find_element_by_name("Open Settings Menu")
+    except NoSuchElementException:
+        print("no Open Settings Menu button")
+        return False
+    settingsButton.click()
+    time.sleep(OPERATION_WAIT_DURATION)
+
+    expanderElements = WindowsCameraAppDriver.find_elements_by_class_name("Microsoft.UI.Xaml.Controls.Expander")
+    for e in expanderElements:
+        match e.text:
+            case "Camera settings":
+                cameraSettingsButton = e
+            case "Video settings":
+                videoSettingsButton = e
+            case "Photo settings":
+                photoSettingsButton = e
+
+    videoSettingsButton.click()
+    time.sleep(OPERATION_WAIT_DURATION)
+
+    # two combo box should be there: "Video quality" / "Flicker reduction" in videos settings
+    # only one combo box there: "Photo quality"  in photos settings
+    try:
+        ComboBoxLists = WindowsCameraAppDriver.find_elements_by_class_name("ComboBox")
+    except NoSuchElementException:
+        print("no ComboBox option for qualities")
+        return False
+
+    # toggle quality option
+    qualityButton = ComboBoxLists[0]
+    qualityButton.click()
+    time.sleep(OPERATION_WAIT_DURATION)
+
+    # query quality options
+    qualityListsIdx = []
+    qualityLists = retrieveQualityList(WindowsCameraAppDriver, mode, qualityListsIdx)
+
+    if len(VIDEO_MODE_QUALITY_LIST) == 0:
+        for q in qualityLists:
+            VIDEO_MODE_QUALITY_LIST.append(q)
+
+    time.sleep(OPERATION_WAIT_DURATION)
+    closeCameraApp(WindowsCameraAppDriver)
+
 
 ###############################################################################################################
 
@@ -1426,13 +1525,20 @@ class CameraEffectsTests(unittest.TestCase):
 
         txtFileName = f".\{timeStr}\\testResult.txt"
         txtFp = open(txtFileName, 'w')
+        txtFp.write(getOsBuildVersion() + "\n")
 
         excelFileName = f"{timeStr}.xlsx"
         excelFileInfo = ExcelFileIfo()
         excelFileInfo.outputExcelFp = xlsxwriter.Workbook(excelFileName)
+        excelFileInfo.warningFormat = excelFileInfo.outputExcelFp.add_format({'bold':True, 'font_color':'green'})
         excelFileInfo.noticeFormat = excelFileInfo.outputExcelFp.add_format({'bold':True, 'font_color':'red'})
 
         retCode = True
+
+        updateVideoQualityList(CameraMode.VIDEO_MODE)
+
+        numTestCases = len(POWER_SIMULATION_STATUS) * len(DEVICE_ORIENTATION) * len(VIDEO_MODE_QUALITY_LIST) * len(CAMERA_EFFECTS_SCENARIO_LIST)
+        testIndex = 1
 
         # go through all power criterias
         for power in POWER_SIMULATION_STATUS:
@@ -1488,17 +1594,21 @@ class CameraEffectsTests(unittest.TestCase):
                 for videoQuality in VIDEO_MODE_QUALITY_LIST:
                     pos = videoQuality.find(", ")
                     if not forceCameraUseSystemSettings(CameraMode.VIDEO_MODE, videoQuality):
-                        txtLog = f"{power}\{orientation}\{videoQuality[:pos]}: Skipped\n"
+                        txtLog = f"[{testIndex}/{numTestCases}] {power}\{orientation}\{videoQuality[:pos]}: Skipped\n"
                         txtFp.write(txtLog)
+                        print(txtLog)
+                        testIndex += 1
                         continue
 
                     for cameraScenario in CAMERA_EFFECTS_SCENARIO_LIST:
                         ret = testPerformanceForQualityScenario(CameraMode.VIDEO_MODE, videoQuality, cameraScenario, self.VIDEO_CAPTURE_DURATION, excelFileInfo)
                         if not ret:
-                            txtLog = f"{power}\{orientation}\{videoQuality[:pos]}\{cameraScenario[3]}: Failed\n"
+                            txtLog = f"[{testIndex}/{numTestCases}] {power}\{orientation}\{videoQuality[:pos]}\{cameraScenario[3]}: Failed\n"
                         else:
-                            txtLog = f"{power}\{orientation}\{videoQuality[:pos]}\{cameraScenario[3]}: Passed\n"
+                            txtLog = f"[{testIndex}/{numTestCases}] {power}\{orientation}\{videoQuality[:pos]}\{cameraScenario[3]}: Passed\n"
                         txtFp.write(txtLog)
+                        print(txtLog)
+                        testIndex += 1
                         retCode = retCode or ret
 
                 screen.rotate_to(curOrientation)

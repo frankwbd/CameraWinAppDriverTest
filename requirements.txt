@@ -4,3 +4,4 @@ psutil
 get-video-properties
 urllib3>=1.26.15,<2
 xlsxwriter
+wmi
